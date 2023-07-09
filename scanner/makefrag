@@ -1,0 +1,13 @@
+CC := g++
+CFLAGS := 
+INC := $(shell pwd)
+
+build/test_scanner.out: scanner/scanner.lex.cpp
+	${CC} -o $@ ${CFLAGS} $^ -I ${INC}
+
+scanner/scanner.lex.cpp: scanner/scanner.l scanner/scanner.h
+	flex -o $@ $^
+
+.PHONY:
+run_test_scanner:
+	build/test_scanner.out scanner/test_scanner.sy

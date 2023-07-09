@@ -1,0 +1,4 @@
+CC := g++
+
+parser/parser.tab.cpp: parser/parser.ypp parser/node.h
+	bison -d $< -o $@

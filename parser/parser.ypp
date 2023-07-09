@@ -1,0 +1,245 @@
+%{
+
+#include "node.h"
+
+#define YYSTYPE Node *
+
+extern string filename;
+extern int lineno;
+extern Node *flex_node;
+
+extern int yylex();
+void yyerror(const char *s) { printf("ERROR: %s\n", s); }
+
+%}
+
+%token AND OR
+%token EQ NE LE GE
+%token VOID INT
+%token IF ELSE WHILE BREAK CONTINUE RETURN
+%token NUMBER IDENT
+
+// 联合体声明，用于后续终结符和非终结符号属性指定使用
+%union {
+    Node *node;
+};
+
+%type<node> Exp ConstExp AddExp MulExp UnaryExp FuncParams PrimaryExp LVal LOrExp RelExp EqExp LAndExp
+
+%type<node> Ident Number UnaryOp 
+
+%%
+
+// CompUnit:   Decl {}
+//             | FuncDef {}
+//             | CompUnit Decl {}
+//             | CompUnit FuncDef {}
+//             ;
+
+// ************** 语句 ************** //
+
+// Stmt:       LVal '=' Exp ';' {
+//                 $$ = new Node(filename, lineno, NODE_OP);
+//                 $$->op_type = OP_ASSIGN;
+//                 $$->addChild($1);
+//                 $$->addChild($3);
+//             }
+//             | ';' {
+//                 $$ = new Node(filename, lineno, NODE_STMT);
+//                 $$->stmt_type = STMT_SKIP;
+//             }
+//             | Exp ';' { $$ = $1; }
+//             | Block
+//             | IF '(' Cond ')' Stmt {
+//                 $$ = new Node(filename, lineno, NODE_STMT);
+//                 $$->stmt_type = STMT_IF;
+//                 $$->addChild($1);
+//                 $$->addChild($3);
+                
+//             }
+//             | IF '(' Cond ')' ELSE Stmt
+//             | WHILE '(' Cond ')' Stmt
+//             | BREAK ';'
+//             | CONTINUE ';'
+//             | RETURN ';'
+//             | RETURN Exp ';'
+//             ;
+
+// Block:      '{' BlockItems '}' { $$ = $2; }
+//             ;
+
+// BlockItems: BlockItem
+//             | BlockItems BlockItem {
+//                 $$ = new Node(filename, lineno, NODE_STMT);
+//                 $$->addChild($1);
+//                 $$->addChild($2);
+//             }
+//             ;
+
+// BlockItem:  Decl
+//             | Stmt;
+
+// ************** 表达式 ************** //
+
+Exp:        AddExp;
+
+ConstExp:   AddExp;
+
+Cond:       LOrExp;
+
+AddExp:     MulExp
+            | AddExp '+' MulExp {
+                $$ = new Node(filename, lineno, NODE_EXP);
+                $$->addChild($1);
+                $$->addChild(new Node(file, lineno, NODE_OP, PLUS));
+                $$->addChild($3);
+            }
+            | AddExp '-' MulExp {
+                $$ = new Node(filename, lineno, NODE_EXP);
+                $$->addChild($1);
+                $$->addChild(new Node(file, lineno, NODE_OP, MINUS));
+                $$->addChild($3);
+            }
+            ;
+
+MulExp:     UnaryExp
+            | MulExp '*' UnaryExp {
+                $$ = new Node(filename, lineno, NODE_EXP);
+                $$->addChild($1);
+                $$->addChild(new Node(file, lineno, NODE_OP, MULT));
+                $$->addChild($3);
+            }
+            | MulExp '/' UnaryExp {
+                $$ = new Node(filename, lineno, NODE_EXP);
+                $$->addChild($1);
+                $$->addChild(new Node(file, lineno, NODE_OP, DIV));
+                $$->addChild($3);
+            }
+            | MulExp '%' UnaryExp {
+                $$ = new Node(filename, lineno, NODE_EXP);
+                $$->addChild($1);
+                $$->addChild(new Node(file, lineno, NODE_OP, MOD));
+                $$->addChild($3);
+            }
+            ;
+
+UnaryExp:   PrimaryExp
+            | Ident '(' ')' {
+                // 函数调用表达式
+                // 必须使用`CALL_EXP`类别，而不是`EXP`类别
+                // 因为空的括号不会被存储
+                $$ = new Node(filename, lineno, NODE_CALL_EXP);
+                $$->addChild($1);
+            }
+            | Ident '(' FuncParams ')' {
+                $$ = new Node(filename, lineno, NODE_CALL_EXP);
+                $$->addChild($1);
+                $$->addChild($3);
+            }
+            | UnaryOp UnaryExp {
+                $$ = new Node(filename, lineno, NODE_EXP);
+                $$->addChild($1);
+                $$->addChild($2);
+            }
+            ;
+
+PrimaryExp: '(' Exp ')' {
+                $$ = $2;
+            }
+            | LVal
+            | Number
+            ;
+
+LVal:       Ident {
+                $$ = new Node(filename, lineno, NODE_IDENT);
+                $$->addChild($1);
+            }
+            | LVal '[' Exp ']' {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->op_type = INDEX;
+                $$->addChild($1);
+                // 这里实际表示的是数组的下标，暂时这样存储
+                // 结果会不太好看，可以通过二次遍历调整
+                $$->addChild($3);
+            }
+            ;
+
+LOrExp:     LAndExp
+            | LOrExp OR LAndExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_OR;
+            }
+            ;
+
+LAndExp:    EqExp
+            | LAndExp AND EqExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_AND;
+            }
+            ;
+
+EqExp:      RelExp
+            | EqExp EQ RelExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_EQ;
+            }
+            | EqExp NE RelExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_NE;
+            }
+            ;
+
+RelExp:     AddExp
+            | RelExp '<' AddExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_LESS;
+            }
+            | RelExp '>' AddExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_GREATER;
+            }
+            | RelExp LE AddExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_LE;
+            }
+            | RelExp GE AddExp {
+                $$ = new Node(filename, lineno, NODE_OP);
+                $$->addChild($1);
+                $$->addChild($3);
+                $$->op_type = OP_GE;
+            }
+            ;
+
+// 这个应该在词法分析里就可以赋值
+// 并且也应该如此，因为在bison里接触不到原始的值
+Ident:      IDENT {
+                $$ = flex_node;
+            }
+            ;
+
+Number:     NUMBER {
+                $$ = flex_node;
+            }
+            ;
+
+UnaryOp:    '+' { $$ = new Node(filename, lineno, NODE_OP, OP_PLUS); }
+            | '-' { $$ = new Node(filename, lineno, NODE_OP, OP_MINUS); }
+            | '!' { $$ = new Node(filename, lineno, NODE_OP, OP_NOT); }
+            ;
+
+//* 空实现
+FuncParams: '(' ')'
