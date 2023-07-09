@@ -1,0 +1,285 @@
+%{
+#include "node.h"
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+
+extern int yylex();
+void yyerror(const char *s) { std::printf("Error: %s\n", s);std::exit(1); }
+
+AddExpNode* root_node;
+%}
+
+%union {
+    std::string *string;
+    int token;
+    int value;
+    char op;
+    // ------------------
+    IdentNode *ident_node;
+    LValNode *l_val_node;
+    PrimaryExpNode *primary_exp_node;
+    IntNode *int_node;
+    FuncRParamsNode *func_r_params_node;
+    UnaryExpNode *unary_exp_node;
+    MulExpNode *mul_exp_node;
+    AddExpNode *add_exp_node;
+    ConstExpNode *const_exp_node;
+    RelExpNode *rel_exp_node;
+    EqExpNode *eq_exp_node;
+    LAndExpNode *l_and_exp_node;
+    LOrExpNode *l_or_exp_node;
+}
+
+/* define the types of token, which is defined in `%union` */
+%token<string> T_IDENT
+%token<value> T_NUMBER
+%token<token> T_AND T_OR
+%token<token> T_EQ T_NE T_LE T_GE T_LESS T_GREATER
+%token<token> T_VOID T_INT
+%token<token> T_IF T_ELSE T_WHILE T_BREAK T_CONTINUE T_RETURN T_CONST
+%token<token> T_ASSIGN T_SEMI T_COMMA
+%token<token> T_LBRACE T_RBRACE T_LBRACKET T_RBRACKET T_LCURLY T_RCURLY
+%token<token> T_NOT T_ADD T_MINUS T_MULT T_DIV T_MOD
+
+/* define the types of node in parser */
+%type<op> AddOp MulOp UnaryOp
+%type<ident_node> Ident
+%type<int_node> Number
+%type<l_val_node> LVal
+%type<primary_exp_node> PrimaryExp
+%type<func_r_params_node> FuncRParams
+%type<unary_exp_node> UnaryExp
+%type<mul_exp_node> MulExp
+%type<add_exp_node> AddExp Exp
+%type<const_exp_node> ConstExp
+%type<string> RelOp EqOp
+%type<rel_exp_node> RelExp
+%type<eq_exp_node> EqExp
+%type<l_and_exp_node> LAndExp
+%type<l_or_exp_node> LOrExp Cond
+
+%start CompRoot
+
+%%
+
+CompRoot:       CompUnit
+                | CompRoot CompUnit
+                ;
+
+CompUnit:       Decl
+                | FuncDef
+                ;
+
+Decl:           ConstDecl
+                | VarDecl
+                ;
+
+ConstDecl:      T_CONST BType ConstDefList T_SEMI
+                ;
+
+ConstDefList:   ConstDef
+                | ConstDefList T_COMMA ConstDef
+                ;
+
+BType:          T_INT
+                ;
+
+ConstDef:       Ident T_ASSIGN ConstInitVal
+                | Ident ConstIndex T_ASSIGN ConstInitVal
+                ;
+
+ConstIndex:     T_LBRACKET ConstExp T_RBRACKET
+                | ConstIndex T_LBRACKET ConstExp T_RBRACKET
+                ;
+
+ConstInitVal:   ConstExp
+                | T_LCURLY T_RCURLY
+                | T_LCURLY ConstInitValList T_RCURLY
+                ;
+
+ConstInitValList:       ConstInitVal
+                        | ConstInitValList T_COMMA ConstInitVal
+                        ;
+
+VarDecl:        BType VarDefList T_SEMI
+                ;
+
+VarDefList:     VarDef
+                | VarDefList T_COMMA VarDef
+                ;
+
+VarDef:         Ident ConstExpList
+                | Ident ConstExpList T_ASSIGN InitVal
+                ;
+
+ConstExpList:   T_LBRACKET ConstExp T_RBRACKET
+                | ConstExpList T_LBRACKET ConstExp T_RBRACKET
+                ;
+
+InitVal:        Exp
+                | T_LCURLY T_RCURLY
+                | T_LCURLY InitValList T_RCURLY
+                ;
+
+InitValList:    InitVal
+                | InitValList T_COMMA InitVal
+                ;
+
+FuncDef:        VarName T_LBRACE T_RBRACE Block
+                | VarName T_LBRACE FuncFParams T_RBRACE Block
+                | T_VOID Ident T_LBRACE T_RBRACE Block
+                | T_VOID Ident T_LBRACE FuncFParams T_RBRACE Block
+                ;
+
+FuncFParams:    FuncFParam
+                | FuncFParams T_COMMA FuncFParam
+                ;
+
+FuncFParam:     VarName
+                | VarName T_LBRACKET T_RBRACKET Indexs
+                ;
+
+Indexs:         
+                | Indexs T_LBRACKET Exp T_RBRACKET
+                ;
+
+VarName:        BType Ident
+                ;
+
+
+BlockItemList:
+                | BlockItemList BlockItem
+                ;
+
+BlockItem:      Decl
+                | Stmt
+                ;
+
+Block:          T_LCURLY BlockItemList T_RCURLY
+
+Stmt:           LVal T_ASSIGN Exp T_SEMI
+                | T_SEMI
+                | Exp T_SEMI
+                | Block
+                | T_IF T_LBRACE Cond T_RBRACE Stmt
+                | T_IF T_LBRACE Cond T_RBRACE Stmt %prec T_ELSE Stmt
+                | T_WHILE T_LBRACE Cond T_RBRACE Stmt
+                | T_BREAK T_SEMI
+                | T_CONTINUE T_SEMI
+                | T_RETURN T_SEMI
+                | T_RETURN Exp T_SEMI
+                ;
+
+Exp:            AddExp { root_node = $1; }
+                ;
+
+ConstExp:       AddExp { $$ = new ConstExpNode($1); }
+                ;
+
+Cond:           LOrExp { $$ = $1; }
+                ;
+
+LOrExp:         LAndExp { $$ = new LOrExpNode($1); }
+                | LOrExp T_OR LAndExp { 
+                        LOrExp* l_or_exp = new LOrExp($1, $3);
+                        $$ = new LOrExpNode(l_or_exp);
+                }
+                ;
+
+LAndExp:        EqExp { $$ = new LAndExpNode($1); }
+                | LAndExp T_AND EqExp { 
+                        LAndExp* l_and_exp = new LAndExp($1, $3); 
+                        $$ = new LAndExpNode(l_and_exp);
+                }
+                ;
+
+EqExp:          RelExp { $$ = new EqExpNode($1);}
+                | EqExp EqOp RelExp { 
+                        EqExp* eq_exp = new EqExp($1, *$2, $3);
+                        delete $2;
+                        $$ = new EqExpNode(eq_exp);
+                }
+                ;
+
+RelExp:         AddExp { $$ = new RelExpNode($1); }
+                | RelExp RelOp AddExp { 
+                        RelExp* rel_exp = new RelExp($1, *$2, $3); 
+                        delete $2; 
+                        $$ = new RelExpNode(rel_exp);
+                }
+                ;
+
+RelOp:          T_LESS { *$$ = "<"; }
+                | T_GREATER { *$$ = ">"; }
+                | T_LE { *$$ = "<="; }
+                | T_GE { *$$ = ">="; }
+                ;
+
+EqOp:           T_EQ { *$$ = "=="; }
+                | T_NE { *$$ = "!="; }
+                ;
+
+AddExp:         MulExp { $$ = new AddExpNode($1); }
+                | AddExp AddOp MulExp {
+                        AddExp* add_exp = new AddExp($1, $2, $3);
+                        $$ = new AddExpNode(add_exp);
+                }
+                ;
+
+AddOp:          T_ADD { $$ = '+'; std::cout << "> AddOp `+`" << std::endl; }
+                | T_MINUS { $$ = '-'; }
+                ;
+
+MulExp:         UnaryExp { $$ = new MulExpNode($1); }
+                | MulExp MulOp UnaryExp { 
+                        MulExp* mul_exp = new MulExp($1, $2, $3);
+                        $$ = new MulExpNode(mul_exp);
+                }
+                ;
+
+MulOp:          T_MULT { $$ = '*'; }
+                | T_DIV { $$ = '/'; }
+                | T_MOD { $$ = '%'; }
+                ;
+
+UnaryExp:       PrimaryExp { $$ = new UnaryExpNode($1); }
+                | Ident '(' ')' {
+                        FuncCall *func_call = new FuncCall($1);
+                        $$ = new UnaryExpNode(func_call);
+                }
+                | Ident '(' FuncRParams ')' {
+                        FuncCall *func_call = new FuncCall($1, $3);
+                        $$ = new UnaryExpNode(func_call);
+                }
+                | UnaryOp UnaryExp {
+                        UnaryOpExp* unary_op_exp = new UnaryOpExp($1, $2);
+                        $$ = new UnaryExpNode(unary_op_exp);
+                }
+                ;
+
+FuncRParams:    Exp { $$ = new FuncRParamsNode($1); }
+                | FuncRParams ',' Exp { $$ = new FuncRParamsNode(*$1, $3); delete $1; }
+                ;
+
+UnaryOp:        T_ADD { $$ = '+'; }
+                | T_MINUS { $$ = '-'; }
+                | T_NOT { $$ = '!'; }
+                ;
+
+PrimaryExp:     '(' Exp ')' { $$ = new PrimaryExpNode($2); }
+                | LVal { $$ = new PrimaryExpNode($1); }
+                | Number { $$ = new PrimaryExpNode($1); }
+                ;
+
+LVal:           Ident { $$ = new LValNode($1); }
+                | LVal '[' Exp ']' { $$ = new LValNode(*$1, $3); delete $1; }
+                ;
+
+Ident:          T_IDENT { $$ = new IdentNode(*$1); delete $1; }
+                ;
+
+Number:         T_NUMBER { $$ = new IntNode($1); }
+                ;
+
+%%

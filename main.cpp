@@ -1,17 +1,22 @@
-#include "parser/parser.h"
+#include "node.h"
+#include "functions.h"
+#include <iostream>
 
-extern FILE *yyin;
+extern int yyparse();
+extern AddExpNode* root_node;
+extern FILE* yyin;
 
 int main(int argc, char **argv) {
-    FILE *f;
-
-    // 若指定有参数，则作为词法分析的输入文件
-    if ((yyin = fopen(argv[1], "r")) == nullptr) {
-        printf("Can't open file %s\n", argv[1]);
-        return -1;
+    if (argc >= 2) {
+        yyin = fopen(argv[1], "r");
+        int result = yyparse();
+        if (!result) {
+            traverseAddExpNode(root_node);
+        } else {
+            fprintf(stderr, "ERROR: parser report error\n");
+        }
+    } else {
+        fprintf(stderr, "ERROR: need src filename\n");
     }
-
-    int result;
-    result = yyparse();
     return 0;
 }

@@ -1,15 +1,12 @@
-all: main
+CC := g++
+CFLAGS := -I /usr/include/llvm-14 -I /usr/include/llvm-c-14
+CFLAGS += -L /usr/lib/llvm-14/lib -lLLVM
 
-include parser/makefrag
-include scanner/makefrag
+parser.out : scanner.lex.cpp parser.tab.cpp main.cpp functions.cpp
+	${CC} -o $@ ${CFLAGS} $^
 
-main: main.cpp scanner/scanner.lex.cpp parser/parser.tab.cpp
-	g++ $^ -I . -o $@
+scanner.lex.cpp : scanner.l parser.tab.cpp
+	flex -o $@ $<
 
-# 单元测试规则
-.PHONY:
-test_scanner: build/test_scanner.out
-
-.PHONY:
-clean:
-	rm scanner/scanner.lex.cpp parser/parser.tab.cpp parser/parser.tab.hpp
+parser.tab.cpp : parser.ypp node.h
+	bison -d $<
