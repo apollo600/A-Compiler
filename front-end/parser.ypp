@@ -1,5 +1,6 @@
 %{
 #include "node.h"
+#include "symtable.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
@@ -10,6 +11,8 @@ void yyerror (AST_Node*& ast, const char* s);
 // define ANSI 
 #define RED_COLOR "\033[1;31m"
 #define RESET_COLOR "\033[0m"
+
+static Scope* cur_scope;
 
 %}
 
@@ -48,6 +51,7 @@ CompRoot:       CompUnit {
                     ast = $$ = new AST_Node($1, nullptr); 
                     $$->set_name("CompRoot");
                     $$->set_type(NodeType::COMP_ROOT);
+                    cur_scope = new Scope(nullptr);
                 }
                 | CompRoot CompUnit { $$->add_child($2); }
                 ;
@@ -161,6 +165,19 @@ FuncDef:        VarDeclWithIdent '(' ')' Block {
                     $$ = new AST_Node($1, child2, child3, $4, nullptr);
                     $$->set_name("FuncDef");
                     $$->set_type(NodeType::FUNC_DEF);
+                    // enter new scope
+                    SymbolType type;
+                    if ($1->childs[0]->name == "int") {
+                        type = SymbolType::INT_FUNC;
+                    } else if ($1->childs[0]->name == "void") {
+                        type = SymbolType::VOID_FUNC;
+                    } else {
+                        perror("unknown function return type");
+                    }
+                    Symbol* t_symbol = new Symbol($1->childs[1]->name, 0, type);
+                    cur_scope->insert(t_symbol);
+                    Scope* t_scope = new Scope(cur_scope);
+                    cur_scope = t_scope;
                 }
                 | VarDeclWithIdent '(' FuncFParams ')' Block {
                     AST_Node* child2 = new AST_Node();
@@ -252,6 +269,10 @@ Block:          '{' BlockItemList '}' {
                     $$ = new AST_Node($2, nullptr); 
                     $$->set_name("Block"); 
                     $$->set_type(NodeType::BLOCK);
+                    cur_scope = cur_scope->parent;
+                    if (cur_scope == nullptr) {
+                        perror("Incorrect block");
+                    }
                 }
                 ;
 

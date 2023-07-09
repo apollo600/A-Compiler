@@ -9,9 +9,9 @@ run: all
 	./parser.out test_parser.sy
 
 clean:
-	rm parser.out parser.tab.hpp parser.tab.cpp scanner.lex.cpp main.ll main.out
+	rm parser.out parser.tab.hpp parser.tab.cpp scanner.lex.cpp main.ll main.out 2> /dev/null
 
-parser.out: scanner.lex.cpp parser.tab.cpp node.cpp main.cpp gen_IR.cpp
+parser.out: scanner.lex.cpp parser.tab.cpp node.cpp main.cpp gen_IR.cpp symtable.cpp
 	${CC} -o $@ ${CFLAGS} $^
 
 parser.tab.cpp: parser.ypp node.h
