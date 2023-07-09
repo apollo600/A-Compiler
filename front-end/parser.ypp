@@ -1,0 +1,492 @@
+%{
+#include "node.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cassert>
+
+extern int yylex();
+void yyerror (AST_Node*& ast, const char* s);
+
+// define ANSI 
+#define RED_COLOR "\033[1;31m"
+#define RESET_COLOR "\033[0m"
+
+%}
+
+%parse-param { AST_Node*& ast }
+
+%union {
+    std::string* string;
+    int token;
+    int value;
+    // ----------------
+    AST_Node* ast_node;
+}
+
+/* define the types of token, which is defined in `%union` */
+%token<string> T_IDENT
+%token<value> T_NUMBER
+%token<token> T_AND T_OR
+%token<token> T_EQ T_NE T_LE T_GE
+%token<token> T_VOID T_INT
+%token<token> T_IF T_ELSE T_WHILE T_BREAK T_CONTINUE T_RETURN T_CONST
+
+/* define the types of node in parser */
+%type<string> RelOp EqOp AddOp MulOp UnaryOp
+%type<ast_node> Ident Number LVal PrimaryExp FuncRParams UnaryExp MulExp AddExp Exp
+%type<ast_node> ConstExp RelExp EqExp LAndExp LOrExp Cond
+%type<ast_node> CompRoot CompUnit Decl ConstDecl ConstDefList BType
+%type<ast_node> ConstDef ConstInitVal ConstInitValList VarDecl VarDef VarDefList
+%type<ast_node> FuncDef FuncFParams FuncFParam Block BlockItem BlockItemList
+%type<ast_node> Stmt ConstIndex ConstExpList InitVal InitValList Indexs VarDeclWithIdent
+
+%start CompRoot
+
+%%
+
+CompRoot:       CompUnit { 
+                    ast = $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("CompRoot");
+                    $$->set_type(NodeType::COMP_ROOT);
+                }
+                | CompRoot CompUnit { $$->add_child($2); }
+                ;
+
+CompUnit:       Decl { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("CompUnit");
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                | FuncDef { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("CompUnit"); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                ;
+
+Decl:           ConstDecl { $$ = new AST_Node($1, nullptr); $$->set_name("Decl"); }
+                | VarDecl { $$ = new AST_Node($1, nullptr); $$->set_name("Decl"); }
+                ;
+
+ConstDecl:      T_CONST VarDeclWithIdent ConstDefList ';' { 
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("const");
+                    $$ = new AST_Node(child1, $2, $3, nullptr);
+                    $$->set_name("ConstDecl");
+                }
+                ;
+
+ConstDefList:   ConstDef { $$ = new AST_Node($1, nullptr); $$->set_name("ConstDefList"); }
+                | ConstDefList ',' ConstDef { $$->add_child($3); }
+                ;
+
+ConstDef:       '=' ConstInitVal {
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("initial =");
+                    $$ = new AST_Node(child1, $2, nullptr);
+                    $$->set_name("ConstDef");
+                }
+                | ConstIndex '=' ConstInitVal {
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("initial =");
+                    $$ = new AST_Node($1, child2, $3, nullptr);
+                    $$->set_name("ConstDef");
+                }
+                ;
+
+ConstIndex:     '[' ConstExp ']' { $$ = new AST_Node($2, nullptr); $$->set_name("ConstIndex"); }
+                | ConstIndex '[' ConstExp ']' { $$->add_child($3); $$->set_name("ConstIndex"); }
+                ;
+
+ConstInitVal:   ConstExp { $$ = new AST_Node($1, nullptr); $$->set_name("ConstInitVal"); }
+                | '{' '}' {
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("{");
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("}");
+                    $$ = new AST_Node(child1, child2, nullptr);
+                    $$->set_name("ConstInitVal");
+                }
+                | '{' ConstInitValList '}' { $$ = new AST_Node($2, nullptr); $$->set_name("ConstInitVal"); }
+                ;
+
+ConstInitValList:       ConstInitVal { $$ = new AST_Node($1, nullptr); $$->set_name("ConstInitValList"); }
+                        | ConstInitValList ',' ConstInitVal { $$->add_child($3); }
+                        ;
+
+VarDecl:        VarDeclWithIdent VarDefList ';' { 
+                    $$ = new AST_Node($1, $2, nullptr);   
+                    $$->set_name("VarDecl"); 
+                }
+                ;
+
+VarDefList:     VarDef { $$ = new AST_Node($1, nullptr); $$->set_name("VarDefList"); }
+                | VarDefList ',' VarDef { $$->add_child($3); }
+                ;
+
+VarDef:         ConstExpList { $$ = new AST_Node($1, nullptr); $$->set_name("VarDef"); }
+                | ConstExpList '=' InitVal {
+                    $$ = new AST_Node($1, $3, nullptr);
+                    $$->set_name("initial =");
+                    $$->set_name("VarDef");
+                }
+                ;
+
+ConstExpList:   %empty { $$ = new AST_Node(); $$->set_name("ConstExpList"); }
+                | ConstExpList '[' ConstExp ']' { $$->add_child($3); }
+                ;
+
+InitVal:        Exp { $$ = new AST_Node($1, nullptr); $$->set_name("InitVal"); }
+                | '{' '}' {
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("{");
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("}");
+                    $$ = new AST_Node(child1, child2, nullptr);
+                }
+                | '{' InitValList '}' { $$ = new AST_Node($2, nullptr); $$->set_name("InitVal"); }
+                ;
+
+InitValList:    InitVal { $$ = new AST_Node($1, nullptr); $$->set_name("InitValList"); }
+                | InitValList ',' InitVal { $$->add_child($3); }
+                ;
+
+FuncDef:        VarDeclWithIdent '(' ')' Block {
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("(");
+                    child2->set_type(NodeType::CONST);
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name(") ");
+                    child3->set_type(NodeType::CONST);
+                    $$ = new AST_Node($1, child2, child3, $4, nullptr);
+                    $$->set_name("FuncDef");
+                    $$->set_type(NodeType::FUNC_DEF);
+                }
+                | VarDeclWithIdent '(' FuncFParams ')' Block {
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("(");
+                    AST_Node* child4 = new AST_Node();
+                    child4->set_name(")");
+                    $$ = new AST_Node($1, child2, $3, child4, $5, nullptr);
+                    $$->set_name("FuncDef");
+                    $$->set_type(NodeType::FUNC_DEF);
+                }
+                | T_VOID Ident '(' ')' Block {
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("void");
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name("(");
+                    AST_Node* child4 = new AST_Node();
+                    child4->set_name(")");
+                    $$ = new AST_Node(child1, $2, child3, child4, $5, nullptr);
+                    $$->set_name("FuncDef");
+                    $$->set_type(NodeType::FUNC_DEF);
+                }
+                | T_VOID Ident '(' FuncFParams ')' Block {
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("void");
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name("(");
+                    AST_Node* child5 = new AST_Node();
+                    child5->set_name(")");
+                    $$ = new AST_Node(child1, $2, child3, $4, child5, $6, nullptr);
+                    $$->set_name("FuncDef");
+                    $$->set_type(NodeType::FUNC_DEF);
+                }
+                ;
+
+FuncFParams:    FuncFParam { $$ = new AST_Node($1, nullptr); $$->set_name("FuncFParams"); }
+                | FuncFParams ',' FuncFParam { $$->add_child($3); }
+                ;
+
+FuncFParam:     BType Ident { $$ = new AST_Node($1, $2, nullptr); $$->set_name("FuncFParams"); }
+                | BType Ident '[' ']' Indexs {
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name("[");
+                    AST_Node* child4 = new AST_Node();
+                    child4->set_name("]");
+                    $$ = new AST_Node($1, $2, child3, child4, $5, nullptr);
+                    $$->set_name("FuncFParams");
+                }
+                ;
+
+Indexs:         %empty { $$ = new AST_Node(); $$->set_name("Indexs"); }
+                | Indexs '[' Exp ']' { $$->add_child($3); }
+                ;
+
+BlockItemList:  %empty { 
+                    $$ = new AST_Node(); 
+                    $$->set_name("BlockItemList");
+                    $$->set_type(NodeType::JUST_CONCAT);
+                }
+                | BlockItemList BlockItem { $$->add_child($2); }
+                ;
+
+BlockItem:      Decl { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("BlockItem");
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                | Stmt { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("BlockItem");
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                ;
+
+VarDeclWithIdent:   BType Ident { 
+                        $$ = new AST_Node($1, $2, nullptr); 
+                        $$->set_name("VarDeclWithIdent");
+                        $$->set_type(NodeType::VAR_DECL_WITH_IDENT);
+                    }
+                    ;
+
+BType:          T_INT { 
+                    $$ = new AST_Node();
+                    $$->set_name("int");
+                    $$->set_type(NodeType::CONST);
+                }
+                ;
+
+Block:          '{' BlockItemList '}' { 
+                    $$ = new AST_Node($2, nullptr); 
+                    $$->set_name("Block"); 
+                    $$->set_type(NodeType::BLOCK);
+                }
+                ;
+
+Stmt:           LVal '=' Exp ';' { 
+                    $$ = new AST_Node($1, $3, nullptr); 
+                    $$->set_name("assign =");
+                    $$->set_type(NodeType::STMT);
+                }
+                | ';' { 
+                    $$ = new AST_Node(); 
+                    $$->set_name(";");
+                    $$->set_type(NodeType::STMT);
+                }
+                | Exp ';' { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("Stmt"); 
+                    $$->set_type(NodeType::STMT);
+                }
+                | Block { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("Stmt"); 
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_IF '(' Cond ')' Stmt {
+                    AST_Node* child = new AST_Node();
+                    child->set_name("if");
+                    $$ = new AST_Node(child, $3, $5, nullptr);
+                    $$->set_name("Stmt");
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_IF '(' Cond ')' Stmt %prec T_ELSE T_ELSE Stmt {
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("if");
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("else");
+                    $$ = new AST_Node(child1, $3, $5, child2, $7, nullptr);
+                    $$->set_name("Stmt");
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_WHILE '(' Cond ')' Stmt {
+                    AST_Node* child = new AST_Node();
+                    child->set_name("while");
+                    $$ = new AST_Node(child, $3, $5, nullptr);
+                    $$->set_name("Stmt");
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_BREAK ';' {
+                    $$ = new AST_Node();
+                    $$->set_name("break");
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_CONTINUE ';' {
+                    $$ = new AST_Node();
+                    $$->set_name("continue");
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_RETURN ';' {
+                    $$ = new AST_Node();
+                    $$->set_name("return");
+                    $$->set_type(NodeType::STMT);
+                }
+                | T_RETURN Exp ';' {
+                    AST_Node* child = new AST_Node();
+                    child->set_name("return");
+                    child->set_type(NodeType::CONST);
+                    $$ = new AST_Node(child, $2, nullptr);
+                    $$->set_name("Stmt");
+                    $$->set_type(NodeType::STMT);
+                }
+                ;
+
+Exp:            AddExp { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("Exp");
+                    $$->set_type(NodeType::JUST_PASS); 
+                }
+                ;
+
+ConstExp:       AddExp { $$ = new AST_Node($1, nullptr); $$->set_name("ConstExp"); }
+                ;
+
+Cond:           LOrExp { $$ = new AST_Node($1, nullptr); $$->set_name("Cond"); }
+                ;
+
+LOrExp:         LAndExp { $$ = new AST_Node($1, nullptr); }
+                | LOrExp T_OR LAndExp { 
+                    $$ = new AST_Node($1, $3, nullptr);
+                    $$->set_name("||");
+                }
+                ;
+
+LAndExp:        EqExp { $$ = new AST_Node($1, nullptr); }
+                | LAndExp T_AND EqExp { 
+                    $$ = new AST_Node($1, $3, nullptr);
+                    $$->set_name("&&");
+                }
+                ;
+
+EqExp:          RelExp { $$ = new AST_Node($1, nullptr); }
+                | EqExp EqOp RelExp { 
+                    $$ = new AST_Node($1, $3, nullptr);
+                    $$->set_name(*$2);
+                    delete $2;
+                }
+                ;
+
+RelExp:         AddExp { $$ = new AST_Node($1, nullptr); }
+                | RelExp RelOp AddExp { 
+                    $$ = new AST_Node($1, $3, nullptr);
+                    $$->set_name(*$2);
+                    delete $2;
+                }
+                ;
+
+RelOp:          '<' { $$ = new std::string("<"); }
+                | '>' { $$ = new std::string(">"); }
+                | T_LE { $$ = new std::string("<="); }
+                | T_GE { $$ = new std::string(">="); }
+                ;
+
+EqOp:           T_EQ { $$ = new std::string("=="); }
+                | T_NE { $$ = new std::string("!="); }
+                ;
+
+AddExp:         MulExp { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("AddExp");
+                    $$->set_type(NodeType::JUST_PASS); 
+                }
+                | AddExp AddOp MulExp { 
+                    $$ = new AST_Node($1, $3, nullptr); 
+                    $$->set_name(*$2);
+                    delete $2; 
+                    $$->set_type(NodeType::ADD_EXP);
+                }
+                ;
+
+AddOp:          '+' { $$ = new std::string("+"); }
+                | '-' { $$ = new std::string("-"); }
+                ;
+
+MulExp:         UnaryExp { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("MulExp"); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                | MulExp MulOp UnaryExp { 
+                    $$ = new AST_Node($1, $3, nullptr); 
+                    $$->set_name(*$2);
+                    delete $2;
+                }
+                ;
+
+MulOp:          '*' { $$ = new std::string("*"); }
+                | '/' { $$ = new std::string("/"); }
+                | '%' { $$ = new std::string("%"); }
+                ;
+
+UnaryExp:       PrimaryExp { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("UnaryExp"); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                | Ident '(' ')' { 
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("(");
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name(")");
+                    $$ = new AST_Node($1, child2, child3, nullptr);
+                    $$->set_name("UnaryExp");
+                }
+                | Ident '(' FuncRParams ')' { 
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("(");
+                    AST_Node* child4 = new AST_Node();
+                    child4->set_name(")");
+                    $$ = new AST_Node($1, child2, $3, child4, nullptr);
+                    $$->set_name("UnaryExp");
+                }
+                | UnaryOp UnaryExp { 
+                    $$ = new AST_Node($2, nullptr);
+                    $$->set_name(*$1);
+                    delete $1;
+                }
+                ;
+
+FuncRParams:    Exp { $$ = new AST_Node($1, nullptr); $$->set_name("FuncRParams"); }
+                | FuncRParams ',' Exp { $$->add_child($3); }
+                ;
+
+UnaryOp:        '+' { $$ = new std::string("+"); }
+                | '-' { $$ = new std::string("-"); }
+                | '!' { $$ = new std::string("!"); }
+                ;
+
+PrimaryExp:     '(' Exp ')' { 
+                    AST_Node* child1 = new AST_Node();
+                    child1->set_name("(");
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name(")");
+                    $$ = new AST_Node(child1, $2, child3, nullptr);
+                    $$->set_name("PrimaryExp");
+                }
+                | LVal { $$ = new AST_Node($1, nullptr); $$->set_name("PrimaryExp"); }
+                | Number { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("PrimaryExp");
+                    $$->set_type(NodeType::JUST_PASS); 
+                }
+                ;
+
+LVal:           Ident { $$ = new AST_Node($1, nullptr); $$->set_name("LVal"); }
+                | LVal '[' Exp ']' { 
+                    $$->add_child($3);
+                }
+                ;
+
+Ident:          T_IDENT {
+                    $$ = new AST_Node(); 
+                    $$->set_name(*$1);
+                    delete $1; 
+                    $$->set_type(NodeType::CONST);
+                }
+                ;
+
+Number:         T_NUMBER { 
+                    $$ = new AST_Node(); 
+                    $$->set_value($1); 
+                    $$->set_name("Number"); 
+                    $$->set_type(NodeType::CONST);
+                }
+                ;
+
+%%
+
+void yyerror(AST_Node*& ast, const char *s) {
+  std::cerr << RED_COLOR << ">>> error: " << s << RESET_COLOR << std::endl;
+}

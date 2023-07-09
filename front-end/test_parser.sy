@@ -1,0 +1,37 @@
+void f(int a) {
+    int b = a + 1;
+    return;
+}
+
+int main() {
+    // 测试变量声明、定义、赋值
+    int a;
+    a = 1;
+    int b = 2;
+    int c = a + b;
+    int d;
+    d = a + b + 1;
+
+    // 测试数组声明、定义、赋值
+    int A[4];
+    A[0] = 1;
+    A[1] = a;
+    A[2] = b + c;
+
+    // 测试if语句
+    if (a == 1) {
+        f(a);
+    } else if (a == 2) {
+        f(a);
+    } else {
+        f(a);
+    }
+
+    // 测试while语句
+    while (a <= 3) {
+        a = a + 1;
+    }
+
+    // 测试return语句
+    return 0;
+}
