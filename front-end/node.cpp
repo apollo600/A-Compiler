@@ -1,5 +1,7 @@
 #include "node.h"
+#include "symtable.h"
 #include <cstdarg>
+using namespace std;
 
 std::map<NodeType, std::string> node_type2name{
     {NodeType::error, "error"},

@@ -10,8 +10,7 @@
 #define KEYWORD_TOKEN(t)    yylval.token = t
 
 int lineno = 1;
-bool DEBUG = true;
-extern Scope* cur_scope;
+bool DEBUG = false;
 %}
 
 %option noyywrap

@@ -1,9 +1,28 @@
 #include "node.h"
+#include "symtable.h"
 #include <cassert>
 #include <fstream>
+#include <stack>
+#include <map>
 using namespace std;
 
+stack<Scope*> scopes;
+
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
+static inline Scope* get_cur_scope();
+static void gen_CompRoot(AST_Node*& ast, ofstream& output);
+static void gen_FuncDef(AST_Node*& ast, ofstream& output);
+static void gen_Block(AST_Node*& ast, ofstream& output);
+static void gen_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_Const(AST_Node*& ast, ofstream& output);
+static void gen_Var_Decl_With_Ident(AST_Node*& ast, ofstream& output);
+static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
+static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
+
+map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
+    {NodeType::COMP_ROOT, gen_CompRoot},
+    {NodeType::FUNC_DEF, gen_FuncDef},
+};
 
 void generate_IR(AST_Node*& ast, ofstream& output)
 {
@@ -32,67 +51,10 @@ void generate_IR(AST_Node*& ast, ofstream& output)
     */
 
     const NodeType& type = ast->type;
-    if (type == NodeType::JUST_PASS) {
-        assert(ast->childs.size() == 1);
-        generate_IR(ast->childs[0], output);
-    } else if (type == NodeType::JUST_CONCAT) {
-        for (AST_Node*& node : ast->childs) {
-            generate_IR(node, output);
-        }
-    } else if (type == NodeType::FUNC_DEF) {
-        output << "; func def" << endl;
-        output << "define ";
-        for (AST_Node*& node : ast->childs) {
-            generate_IR(node, output);
-        }
-    } else if (type == NodeType::BLOCK) {
-        output << "{" << endl;
-        generate_IR(ast->childs[0], output);
-        output << "}" << endl;
-    } else if (type == NodeType::STMT) {
-        /* return-stmt */
-        if (ast->childs[0]->name == "return") {
-            output << "\tret ";
-            // decide return type
-            AST_Node* func_def_node = Backtrack(ast, "FuncDef");
-            if (!func_def_node) {
-                perror("No parent named `FuncDef`");
-            }
-            AST_Node* return_type_node = func_def_node->childs[0]->childs[0];
-            
-            if (return_type_node->name == "int")
-                output << "i32 ";
-            else if (return_type_node->name == "void")
-                output << "void" << endl;
-            else
-                perror("unknown function type");
-            generate_IR(ast->childs[1], output);
-            output << endl;
-        }
-    } else if (type == NodeType::CONST) {
-        if (ast->name == "Number") {
-            output << ast->value;
-            return;
-        } else {
-            output << ast->name;
-            return;
-        }
-    } else if (type == NodeType::VAR_DECL_WITH_IDENT) {
-        assert(ast->childs.size() == 2);
-        
-        if (ast->childs[0]->name == "int") {
-            output << "i32 ";
-        } else if (ast->childs[0]->name == "void") {
-            output << "void ";
-        } else {
-            perror("unknown function type");
-        }
-
-        output << "@" << ast->childs[1]->name;
-    } else if (type == NodeType::COMP_ROOT) {
-        output << "target triple = \"x86_64-pc-windows-msys\"\n" << endl;
-        generate_IR(ast->childs[0], output);
-    } else {
+    if (IR_handler_Table.count(type)) {
+        IR_handler_Table[type](ast, output);
+    }
+    else {
         perror("Unimplemented node type");
     }
 }
@@ -106,4 +68,119 @@ static AST_Node* Backtrack(AST_Node* ast, string node_name)
         ast = ast->parent;
     }
     return nullptr;
+}
+
+static inline Scope* get_cur_scope()
+{
+    Scope* cur_scope = scopes.top();
+    return cur_scope;
+}
+
+static void gen_CompRoot(AST_Node*& ast, ofstream& output)
+{
+    output << "target triple = \"x86_64-pc-windows-msys\"\n" << endl;
+    generate_IR(ast->childs[0], output);
+}
+
+static void gen_FuncDef(AST_Node*& ast, ofstream& output)
+{
+    output << "; func def" << endl;
+    output << "define ";
+    /* 查表是否被声明过 */
+    if (get_cur_scope()->lookup(ast->childs[1]->name)) {
+        printf("Function has been declared, check\n");
+    }
+    else {
+        // add function symbol
+        SymbolType type;
+        AST_Node* name_child = ast->childs[0];
+        if (name_child->childs.size() < 2) {
+            cerr << "incorrect node" << endl;
+        }
+        if (name_child->childs[0]->name == "int") {
+            type = SymbolType::INT_FUNC;
+        } else if (name_child->childs[0]->name == "void") {
+            type = SymbolType::VOID_FUNC;
+        } else {
+            cerr << "unknown function return type" << endl;
+        }
+        Symbol* t_symbol = new Symbol(name_child->childs[1]->name, 0, type);
+        get_cur_scope()->insert(t_symbol);
+        
+        // push new scope
+        scopes.push(new Scope(get_cur_scope()));
+    }
+
+    for (AST_Node*& node : ast->childs) {
+        generate_IR(node, output);
+    }
+}
+
+static void gen_Block(AST_Node*& ast, ofstream& output)
+{
+    output << "{" << endl;
+    generate_IR(ast->childs[0], output);
+    output << "}" << endl;
+}
+
+static void gen_Stmt(AST_Node*& ast, ofstream& output)
+{
+    /* return-stmt */
+    if (ast->childs[0]->name == "return") {
+        output << "\tret ";
+        // decide return type
+        AST_Node* func_def_node = Backtrack(ast, "FuncDef");
+        if (!func_def_node) {
+            perror("No parent named `FuncDef`");
+        }
+        AST_Node* return_type_node = func_def_node->childs[0]->childs[0];
+        
+        if (return_type_node->name == "int")
+            output << "i32 ";
+        else if (return_type_node->name == "void")
+            output << "void" << endl;
+        else
+            perror("unknown function type");
+        generate_IR(ast->childs[1], output);
+        output << endl;
+    }
+}
+
+static void gen_Const(AST_Node*& ast, ofstream& output)
+{
+    if (ast->name == "Number") {
+        output << ast->value;
+        return;
+    } else {
+        output << ast->name;
+        return;
+    }
+}
+
+static void gen_Var_Decl_With_Ident(AST_Node*& ast, ofstream& output)
+{
+    assert(ast->childs.size() == 2);
+        
+    if (ast->childs[0]->name == "int") {
+        output << "i32 ";
+    } else if (ast->childs[0]->name == "void") {
+        output << "void ";
+    } else {
+        perror("unknown function type");
+    }
+
+    output << "@" << ast->childs[1]->name;
+}
+
+static void gen_Just_Pass(AST_Node*& ast, ofstream& output)
+{
+    assert(ast->childs.size() == 1);
+    generate_IR(ast->childs[0], output);
+}
+
+static void gen_Just_Concat(AST_Node*& ast, ofstream& output)
+{
+    for (AST_Node*& node : ast->childs) {
+        generate_IR(node, output);
+    }
 }
