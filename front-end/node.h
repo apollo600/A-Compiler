@@ -11,7 +11,8 @@ extern std::string filename;
 
 enum class NodeType {
     error, JUST_CONCAT, JUST_PASS, FUNC_DEF, FUNC_DECL, BLOCK, 
-    DECL, STMT, ADD_EXP, CONST, VAR_DECL_WITH_IDENT, COMP_ROOT
+    STMT, ADD_EXP, CONST, VAR_DECL_WITH_IDENT, COMP_ROOT,
+    VAR_DECL, JUST_CONTINUE, VAR_DEF
 };
 
 class AST_Node {

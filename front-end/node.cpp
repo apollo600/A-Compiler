@@ -8,13 +8,15 @@ std::map<NodeType, std::string> node_type2name{
     {NodeType::ADD_EXP, "ADD_EXP"},
     {NodeType::BLOCK, "BLOCK"},
     {NodeType::CONST, "CONST"},
-    {NodeType::DECL, "DECL"},
+    {NodeType::VAR_DECL, "VAR_DECL"},
     {NodeType::FUNC_DECL, "FUNC_DECL"},
     {NodeType::FUNC_DEF, "FUNC_DEF"},
     {NodeType::JUST_CONCAT, "JUST_CONCAT"},
     {NodeType::JUST_PASS, "JUST_PASS"},
     {NodeType::STMT, "STMT"},
-    {NodeType::VAR_DECL_WITH_IDENT, "VAR_DECL_WITH_IDENT"}
+    {NodeType::VAR_DECL_WITH_IDENT, "VAR_DECL_WITH_IDENT"},
+    {NodeType::JUST_CONTINUE, "JUST_CONTINUE"},
+    {NodeType::VAR_DEF, "VAR_DEF"},
 };
 
 static int level = 0;

@@ -9,6 +9,7 @@ using namespace std;
 stack<Scope*> scopes;
 
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
+static AST_Node* Track(AST_Node* ast, string node_name);
 static inline Scope* get_cur_scope();
 static void gen_CompRoot(AST_Node*& ast, ofstream& output);
 static void gen_FuncDef(AST_Node*& ast, ofstream& output);
@@ -18,10 +19,19 @@ static void gen_Const(AST_Node*& ast, ofstream& output);
 static void gen_Var_Decl_With_Ident(AST_Node*& ast, ofstream& output);
 static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
 static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
+static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
+static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
 
 map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::COMP_ROOT, gen_CompRoot},
     {NodeType::FUNC_DEF, gen_FuncDef},
+    {NodeType::BLOCK, gen_Block},
+    {NodeType::STMT, gen_Stmt},
+    {NodeType::CONST, gen_Const},
+    {NodeType::VAR_DECL_WITH_IDENT, gen_Var_Decl_With_Ident},
+    {NodeType::JUST_PASS, gen_Just_Pass},
+    {NodeType::JUST_CONCAT, gen_Just_Concat},
+    {NodeType::VAR_DECL, gen_Var_Decl},
 };
 
 void generate_IR(AST_Node*& ast, ofstream& output)
@@ -70,6 +80,19 @@ static AST_Node* Backtrack(AST_Node* ast, string node_name)
     return nullptr;
 }
 
+static AST_Node* Track(AST_Node* ast, string node_name)
+{
+    if (ast->name == node_name) {
+        return ast;
+    }
+
+    for (AST_Node* node : ast->childs) {
+        Track(node, node_name);
+    }
+
+    return nullptr;
+}
+
 static inline Scope* get_cur_scope()
 {
     Scope* cur_scope = scopes.top();
@@ -86,8 +109,10 @@ static void gen_FuncDef(AST_Node*& ast, ofstream& output)
 {
     output << "; func def" << endl;
     output << "define ";
-    /* 查表是否被声明过 */
+    
+    // 处理符号表
     if (get_cur_scope()->lookup(ast->childs[1]->name)) {
+        // 查表是否被声明过
         printf("Function has been declared, check\n");
     }
     else {
@@ -110,7 +135,8 @@ static void gen_FuncDef(AST_Node*& ast, ofstream& output)
         // push new scope
         scopes.push(new Scope(get_cur_scope()));
     }
-
+    
+    // 遍历子节点
     for (AST_Node*& node : ast->childs) {
         generate_IR(node, output);
     }
@@ -183,4 +209,50 @@ static void gen_Just_Concat(AST_Node*& ast, ofstream& output)
     for (AST_Node*& node : ast->childs) {
         generate_IR(node, output);
     }
+}
+
+static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
+{
+    SymbolType type;
+    string ident;
+    AST_Node* meta = ast->childs[0];
+    AST_Node* var_def_list = ast->childs[1];
+
+    // proces first ident
+    // assign type and first ident
+    assert(meta->childs.size() >= 2);
+    if (meta->childs[0]->name == "int") {
+        type = SymbolType::INT_VAR;
+    } else {
+        perror("unknown variable type");
+    }
+    ident = meta->childs[1]->name;
+
+    // insert node to symbol table
+    AST_Node* first_var_def = var_def_list->childs[0];
+    assert(first_var_def->childs[0]->name == "ConstExpList");
+    AST_Node* initial_value_node = Track(first_var_def, "Number");
+    Symbol* t_symbol = new Symbol(ident, initial_value_node->value, type);
+    get_cur_scope()->insert(t_symbol);
+
+    // form IR
+    // name
+    output << "@" << ident << " = ";
+    // property
+    if (scopes.size() == 1) {
+        output << "global ";
+    } else {
+        output << "private ";
+    }
+    // type
+    output << "i32 ";
+    // value
+    output << initial_value_node->value << " ";
+    // align
+    output << "align 4" << endl;
+}
+
+static void gen_Just_Continue(AST_Node*& ast, ofstream& output)
+{
+    return;
 }

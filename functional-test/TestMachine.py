@@ -42,10 +42,15 @@ def check_compiler(Compiler):
         raise FileNotFoundError(f"Compiler {Compiler} not found")
 
 
-def compile_sysy(Infile, IR):
+def compile_sysy(Infile, IR, DEBUG_OUTPUT):
     if os.path.exists(Infile):
-        print(f"\nCompile SysY: {Infile} to LLVM IR: {IR}")
-        subprocess.run([Compiler, Infile, "-o", IR, "--hide-AST"])
+        if DEBUG_OUTPUT is not None:
+            print(f"\nCompile SysY: {Infile} to LLVM IR: {IR} > {DEBUG_OUTPUT}")
+            with open(DEBUG_OUTPUT, "w") as output:
+                subprocess.run([Compiler, Infile, "-o", IR], stdout=output)
+        else:
+            print(f"\nCompile SysY: {Infile} to LLVM IR: {IR}")
+            subprocess.run([Compiler, Infile, "-o", IR, "--hide-AST"])
     else:
         raise FileNotFoundError(f"Src file {Infile} not found")
 
@@ -79,10 +84,11 @@ def check_result(returncode, Outfile, TestCase):
 
 
 if __name__ == "__main__":
-    Script = "make.bat"
+    Script = "make"
     Compiler = "../front-end/parser.out"
-    In = "./function_test2021/000_main.sy"
+    In = "./function_test2021/001_var_defn.sy"
     IR = "../front-end/main.ll"
+    DEBUG_OUTPUT = "./parser-output.txt"
     Exe = "../front-end/main.out"
     Out = re.sub(".sy$", ".out", In)
     TestCase = int(In.split('/')[-1][:3])
@@ -90,7 +96,7 @@ if __name__ == "__main__":
     try:
         init_test(Script)
         check_compiler(Compiler)
-        compile_sysy(In, IR)
+        compile_sysy(In, IR, DEBUG_OUTPUT)
         compile_IR(IR, Exe)
         returncode = run_exe(Exe)
         check_result(returncode, Out, TestCase)

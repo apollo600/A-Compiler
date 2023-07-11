@@ -13,3 +13,41 @@
 - 全局变量，对应在LLVM IR中使用`@global_variable = global i32 0`/`@global_constant = constant i32 0`，这里需要注意`@`后面的是**变量名称**。
 - 局部变量，在LLVM IR中使用`private`修饰，使用`private`修饰的变量不会出现在符号表中，即其他文件看不到。
 - 静态变量，在LLVM IR中使用`internel`修饰，会记录在符号表中，但是链接时不会参与符号解析
+
+第一次重构把生成IR的函数分成了多个函数；第二次重构，在AST层面去掉DECL_WITH_IDENT这个结构。
+
+第一次修改后状态：
+```
+<VarDecl, , VAR_DECL> 
+    <int, , CONST> 
+    <a, , CONST> 
+    <VarDefList, , JUST_CONCAT> 
+        <VarDef, , JUST_CONTINUE> 
+            <ConstExpList, , error> 
+            <InitVal, , error> 
+                <Exp, , JUST_PASS> 
+                    <AddExp, , JUST_PASS> 
+                        <MulExp, , JUST_PASS> 
+                            <UnaryExp, , JUST_PASS> 
+                                <PrimaryExp, , JUST_PASS> 
+                                    <Number, 3, CONST> 
+```
+
+显然这是有问题的，因为a应该放在第一个VarDef中。修改后`VarDecl`的情况正确了：
+```
+<VarDecl, , VAR_DECL> 
+    <int, , CONST> 
+    <VarDefList, , JUST_CONCAT> 
+        <VarDef, , JUST_CONTINUE> 
+            <a, , CONST> 
+            <ConstExpList, , error> 
+            <InitVal, , error> 
+                <Exp, , JUST_PASS> 
+                    <AddExp, , JUST_PASS> 
+                        <MulExp, , JUST_PASS> 
+                            <UnaryExp, , JUST_PASS> 
+                                <PrimaryExp, , JUST_PASS> 
+                                    <Number, 3, CONST> 
+```
+
+另一个需要修改的地方是ConstDecl，修改的方法是一样的。
