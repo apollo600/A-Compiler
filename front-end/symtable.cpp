@@ -2,6 +2,7 @@
 
 Scope::Scope(Scope* parent): parent(parent), son(nullptr)
 {
+    printf("Scope created\n");
     if (parent) {
         parent->son = this;
     }

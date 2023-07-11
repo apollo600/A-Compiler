@@ -2,6 +2,7 @@
 #include <string>
 #include <cstdlib>
 #include "node.h"
+#include "symtable.h"
 #include "parser.tab.hpp"
 
 #define STRING_TOKEN        yylval.string = new std::string(yytext, yyleng)
@@ -9,8 +10,8 @@
 #define KEYWORD_TOKEN(t)    yylval.token = t
 
 int lineno = 1;
-
-bool DEBUG = false;
+bool DEBUG = true;
+extern Scope* cur_scope;
 %}
 
 %option noyywrap
