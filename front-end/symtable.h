@@ -27,7 +27,7 @@ public:
     /*
     | name | symbol_type |
             - func       |
-            - var        | initialized | value_type | value |
+            - var        | initialized | value_type | value | is_const | is_global |
     */
     string name;
     SymbolType symbol_type;
@@ -36,6 +36,8 @@ public:
     ValueType value_type;
     int const_value;
     string reg_value; 
+    bool is_const;
+    bool is_global;
 
     // 用于变量的定义
     Symbol(const string& name, const int& value, const SymbolType& type):

@@ -4,6 +4,7 @@
         ".bochsrc": "yaml",
         "*.asm": "asm-intel-x86-generic",
         "Makefrag": "makefile",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "iosfwd": "cpp"
     }
 }

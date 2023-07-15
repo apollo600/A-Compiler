@@ -1,5 +1,6 @@
 #include "node.h"
 #include "symtable.h"
+#include "IR_node.h"
 #include <cassert>
 #include <fstream>
 #include <stack>
@@ -10,11 +11,11 @@ stack<Scope*> scopes;
 
 static int global_var_index = 0;
 static string last_reg = "";
+static int last_const = 0;
 
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
 static AST_Node* Track(AST_Node* ast, string node_name);
 static inline Scope* get_cur_scope();
-static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type);
 
 static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
 static void gen_Func_Def(AST_Node*& ast, ofstream& output);
@@ -30,6 +31,10 @@ static void gen_Func_Name(AST_Node*& ast, ofstream& output);
 static void gen_Func_Type(AST_Node*& ast, ofstream& output);
 static void gen_Func_Params(AST_Node*& ast, ofstream& output);
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
+
+static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type);
+static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
+static string gen_Func_Param(AST_Node*& ast);
 
 map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::ADD_EXP, gen_Add_Exp},
@@ -124,36 +129,56 @@ static void gen_Comp_Root(AST_Node*& ast, ofstream& output)
 
 static void gen_Func_Def(AST_Node*& ast, ofstream& output)
 {
-    output << "; func def" << endl;
-    output << "define ";
+    FuncDefIR ir;
     
     // 处理符号表
     if (get_cur_scope()->lookup(ast->childs[1]->name)) {
         // 查表是否被声明过
         printf("Function has been declared, check\n");
+        return;
     }
-    else {
-        // add function symbol
-        SymbolType type;
-        if (ast->childs[0]->name == "int") {
-            type = SymbolType::INT_FUNC;
-        } else if (ast->childs[0]->name == "void") {
-            type = SymbolType::VOID_FUNC;
-        } else {
-            perror("unknown function return type");
-        }
+  
+    // add function symbol
+    SymbolType type;
+    if (ast->childs[0]->name == "int") {
+        type = SymbolType::INT_FUNC;
+    } else if (ast->childs[0]->name == "void") {
+        type = SymbolType::VOID_FUNC;
+    } else {
+        perror("unknown function return type");
+    }
 
-        Symbol* t_symbol = new Symbol(ast->childs[1]->name, type);
-        get_cur_scope()->insert(t_symbol);
-        
-        // switch to new scope
-        scopes.push(new Scope(get_cur_scope()));
-    }
+    Symbol* t_symbol = new Symbol(ast->childs[1]->name, type);
+    get_cur_scope()->insert(t_symbol);
+    
+    // switch to new scope
+    scopes.push(new Scope(get_cur_scope()));
+
+    ir.func_name = t_symbol->name;
+    
+    if (t_symbol->symbol_type == SymbolType::INT_FUNC)
+        ir.var_type = "i32";
+    else if (t_symbol->symbol_type == SymbolType::VOID_FUNC)
+        ir.var_type = "void";
+    else
+        perror("unknown func ret type");
     
     // 生成 Block
-    for (AST_Node* node : ast->childs) {
-        generate_IR(node, output);
+    for (AST_Node*& node: ast->childs[2]->childs) {
+        ir.param_list.push_back(
+            gen_Func_Param(node)
+        );
     }
+
+    ir.print(output);
+
+    // continue to generate block
+    generate_IR(ast->childs[3], output);
+}
+
+static string gen_Func_Param(AST_Node*& ast)
+{
+    perror("unimplemented");
 }
 
 static void gen_Block(AST_Node*& ast, ofstream& output)
@@ -167,39 +192,42 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
 {
     /* return-stmt */
     if (ast->childs[0]->name == "return") {
-        // decide return type
-        AST_Node* func_def_node = Backtrack(ast, "FuncDef");
-        if (!func_def_node) {
-            perror("No parent named `FuncDef`");
-        }
-        string func_name = func_def_node->childs[1]->name;
-        Symbol* func_symbol = get_cur_scope()->lookup(func_name);
-
-        if (func_symbol->symbol_type == SymbolType::VOID_FUNC) {
-            output << "void" << endl;
-            return;   
-        } else {
-            if (ast->childs[1]->name == "Number") {
-                output << "\tret ";
-                // return type
-                if (func_symbol->symbol_type == SymbolType::INT_FUNC)
-                    output << "i32 ";
-                else
-                    perror("unknown function type");
-                generate_IR(ast->childs[1], output);
-                output << endl;
-            } else { /* LVal */
-                generate_IR(ast->childs[1], output);
-                output << "\tret ";
-                // return type
-                if (func_symbol->symbol_type == SymbolType::INT_FUNC)
-                    output << "i32 ";
-                else
-                    perror("unknown function type");
-                output << last_reg << endl;
-            }
-        }    
+        gen_Return_Stmt(ast, output);   
     }
+}
+
+static void gen_Return_Stmt(AST_Node*& ast, ofstream& output)
+{
+    ReturnStmtIR ir;
+
+    // decide return type
+    AST_Node* func_def_node = Backtrack(ast, "FuncDef");
+    if (!func_def_node) {
+        perror("No parent named `FuncDef`");
+    }
+    string func_name = func_def_node->childs[1]->name;
+    Symbol* func_symbol = get_cur_scope()->lookup(func_name);
+    if (func_symbol->symbol_type == SymbolType::VOID_FUNC) {
+        ir.var_type = "void";  
+    } else {
+        if (func_symbol->symbol_type == SymbolType::INT_FUNC)
+            ir.var_type = "i32";
+        else
+            perror("unknown function type");
+    }
+
+    // get return reg/const       
+    if (ast->childs[1]->name == "Number") { /* const */
+        ir.is_const = true;
+        generate_IR(ast->childs[1], output);
+        ir.return_const = last_const;
+    } else { /* LVal */
+        ir.is_const = false;
+        generate_IR(ast->childs[1], output);
+        ir.return_reg = last_reg;
+    }
+
+    ir.print(output);
 }
 
 static void gen_Const(AST_Node*& ast, ofstream& output)
@@ -216,6 +244,7 @@ static void gen_Const(AST_Node*& ast, ofstream& output)
         } else {
             output << ast->value;
         }
+        last_const = ast->value;
         return;
     } else {
         output << ast->name;
@@ -285,13 +314,15 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
     // `@` or `%`
     if (scopes.size() == 1) {
         reg_name += "@";
+        t_symbol->is_global = true;
     } else {
         reg_name += "%";
+        t_symbol->is_global = false;
     }
     // ident
     reg_name += t_symbol->name;
     t_symbol->reg_value = reg_name;
-    
+
     output << reg_name << " = ";
     // property
     if (scopes.size() == 1) {
@@ -361,7 +392,17 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
     AST_Node* ident = ast->childs[0];
     Symbol* t_symbol = get_cur_scope()->lookup(ident->name);
     if (t_symbol) {
-        output << t_symbol->reg_value << " ";
+        if (t_symbol->is_global) {
+            if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+                string reg_name = "%" + t_symbol->name;
+                output << "\t" << reg_name << " = ";
+                output << "load i32, i32* " << t_symbol->reg_value;
+                output << ", align 4" << endl;
+                last_reg = reg_name;
+            }
+        } else {
+            last_reg = t_symbol->reg_value;
+        }
     } else {
         perror("no symbol in table");
     }
@@ -369,38 +410,29 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
 
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
 {
+    AddExpIR ir;
+
+    if (ast->name == "+")
+        ir.inst_name = "add";
+    else if (ast->name == "-")
+        ir.inst_name = "sub";
+    else
+        perror("wrong add op");
+    
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.return_reg = reg_name;
+
     AST_Node* operand_1 = ast->childs[0];
     AST_Node* operand_2 = ast->childs[1];
-    if (ast->name == "+") {
-        global_var_index++;
-        string reg_name = "%v" + to_string(global_var_index);
-        // @v{global_var_index} = add i32 @a, @b;
-        output << "\t" << reg_name << " = ";
-        output << "add ";
-        // i32
-        output << "i32 ";
-        // two operands
-        generate_IR(operand_1, output);
-        output << ", ";
-        generate_IR(operand_2, output);
-        // last_reg = "@v{global_var_index}"
-        last_reg = reg_name;
-        // endl
-        output << endl;
-    } else if (ast->name == "-") {
-        global_var_index++;
-        string reg_name = "@v" + to_string(global_var_index);
-        // @v{global_var_index} = @a + @b;
-        output << "\t" << reg_name << " = ";
-        output << "sub i32";
-        generate_IR(operand_1, output);
-        output << ", ";
-        generate_IR(operand_2, output);
-        // last_reg = "@v{global_var_index}"
-        last_reg = reg_name;
-        // endl
-        output << endl;
-    } else {
-        perror("unknown add op");
-    }
+    generate_IR(operand_1, output);
+    ir.operand_1 = last_reg;
+    generate_IR(operand_2, output);
+    ir.operand_2 = last_reg;
+
+    ir.var_type = "i32";
+
+    ir.print(output);
+
+    last_reg = ir.return_reg;
 }
