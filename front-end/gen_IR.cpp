@@ -220,6 +220,7 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 
     // proces first ident
     // assign type and first ident
+    // TODO 重构了VarWithIdent
     assert(meta->childs.size() >= 2);
     if (meta->childs[0]->name == "int") {
         type = SymbolType::INT_VAR;
