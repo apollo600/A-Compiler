@@ -5,6 +5,7 @@
         "*.asm": "asm-intel-x86-generic",
         "Makefrag": "makefile",
         "iostream": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "ostream": "cpp"
     }
 }

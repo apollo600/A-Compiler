@@ -236,6 +236,9 @@ static void gen_Const(AST_Node*& ast, ofstream& output)
         // 回溯查看是否是InitVal
         AST_Node* init_val_node = Backtrack(ast, "InitVal");
         if (init_val_node) {
+            string var_name = init_val_node->parent->childs[0]->name;
+            Symbol* t_symbol = get_cur_scope()->lookup(var_name);
+            t_symbol->is_reg = false;
             last_const = ast->value;
         } else {
             output << ast->value;
@@ -284,6 +287,49 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 
 static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const)
 {
+    /* symbol part */
+
+    /* 检查是不是数组，即是否有VarDefList
+    按照当前具体语法树的写法，直接使用第三个节点 */
+    AST_Node* init_val = ast->childs[2];
+
+    // insert node to symbol table
+    /* 这个部分比较难，即获取这个表达式的值，参照另一个代码，
+    首先，要继续向下遍历，不能跳过这个表达式；
+    然后，这个表达式的值要传给这个初始值，这里初始值在运行时可以被查到，但是在编译时不一定
+    所以需要通过寄存器+符号表传值，所有对值的改动都应该反应到符号表里 */
+    Symbol* t_symbol;
+    AST_Node* ident = ast->childs[0];
+    t_symbol = new Symbol(ident->name, type);
+    
+    // is global
+    if (scopes.size() == 1) {
+        t_symbol->is_global = true;
+    } else {
+        t_symbol->is_global = false;
+    }
+
+    // is const
+    t_symbol->is_const = is_const;
+
+    get_cur_scope()->insert(t_symbol);
+
+    // gen_const will fill the `is_reg` property
+    generate_IR(init_val, output);
+
+    // value
+    if (t_symbol->is_reg) {
+        t_symbol->reg_value = last_reg;
+    } else {
+        t_symbol->const_value = last_const;
+    }
+
+    // 全局变量填写寄存器名称
+    if (t_symbol->is_global)
+        t_symbol->reg_value = "@" + t_symbol->name;
+
+    /* IR part */
+
     VarDefIR ir;
 
     // var type
@@ -297,99 +343,25 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     // is const
     ir.is_const = is_const;
 
-    // `@` or `%`
-    if (scopes.size() == 1) {
-        ir.is_global = true;
-    } else {
-        ir.is_global = false;
-    }
+    // is global
+    ir.is_global = t_symbol->is_global;
 
     // var name
-    AST_Node* ident = ast->childs[0];
     ir.var_name = ident->name;
 
-    /* 检查是不是数组，即是否有VarDefList
-    按照当前具体语法树的写法，直接使用第三个节点 */
-    AST_Node* init_val = ast->childs[2];
+    // is reg
+    ir.is_reg = t_symbol->is_reg;
 
-    // 递归执行initval部分
-    /* 首先需要把后面表达式的结果计算出来，最终保存到一个寄存器，
-    然后把这个寄存器的值作为这个变量的初始值，传值可以通过全局变量 */
-    generate_IR(init_val, output);
-    if (ir.is_global) { /* global/const */
-        ir.is_reg = false;
-        ir.init_value = last_const;
-    }
-    else { /* reg */
-        ir.is_reg = true;
-        ir.init_reg = last_reg;
-    }
-
-    // insert node to symbol table
-    /* 这个部分比较难，即获取这个表达式的值，参照另一个代码，
-    首先，要继续向下遍历，不能跳过这个表达式；
-    然后，这个表达式的值要传给这个初始值，这里初始值在运行时可以被查到，但是在编译时不一定
-    所以需要通过寄存器+符号表传值，所有对值的改动都应该反应到符号表里 */
-    Symbol* t_symbol;
-    if (ir.is_reg) {
-        t_symbol = new Symbol(ir.var_name, ir.init_reg, type);
+    // value
+    if (ir.is_reg) { /* 会有这种情况吗 */
+        ir.init_reg = t_symbol->reg_value;
     } else {
-        t_symbol = new Symbol(ir.var_name, ir.init_value, type);
-        if (ir.is_global)
-            t_symbol->reg_value = "@" + ir.var_name;
+        ir.init_value = t_symbol->const_value;
     }
-    t_symbol->is_global = ir.is_global;
-    get_cur_scope()->insert(t_symbol);
+
+    cout << ir.is_global << " " << ir.is_reg << endl;
 
     ir.print(output);
-
-    /* // form IR
-    t_symbol = get_cur_scope()->lookup(ident->name);
-    // reg_name
-    string reg_name = "";
-    // `@` or `%`
-    if (scopes.size() == 1) {
-        reg_name += "@";
-        t_symbol->is_global = true;
-    } else {
-        reg_name += "%";
-        t_symbol->is_global = false;
-    }
-    // ident
-    reg_name += t_symbol->name;
-    t_symbol->reg_value = reg_name;
-
-    output << reg_name << " = ";
-    // property
-    if (scopes.size() == 1) {
-        output << "global ";
-    } else {
-        output << "private ";
-    }
-    // type
-    if (t_symbol->symbol_type == SymbolType::INT_VAR) {
-        output << "i32 ";
-    } else {
-        perror("unimplemented var type");
-    }
-    // value
-    if (t_symbol->initialized) {
-        if (t_symbol->value_type == ValueType::CONST) {
-            output << t_symbol->const_value << " ";
-        } else if (t_symbol->value_type == ValueType::REGISTER) {
-            output << t_symbol->reg_value << " ";
-        }
-    } else {
-        perror("uninitialized symbol value");
-    }
-    // align
-    if (t_symbol->symbol_type == SymbolType::INT_VAR) {
-        output << "align 4 ";
-    } else {
-        perror("unimplemented var type");
-    }
-    // from IR end
-    output << endl; */
 }
 
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output)
@@ -427,6 +399,7 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
 {
     AST_Node* ident = ast->childs[0];
     Symbol* t_symbol = get_cur_scope()->lookup(ident->name);
+    cout << "find " << ident->name << endl;
     if (t_symbol) {
         if (t_symbol->is_global) {
             if (t_symbol->symbol_type == SymbolType::INT_VAR) {
@@ -437,8 +410,16 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
                 last_reg = reg_name;
             }
         } else {
-            last_reg = t_symbol->reg_value;
+            if (t_symbol->is_reg) {
+                last_reg = t_symbol->reg_value;
+            } else {
+                string reg_name = "%" + t_symbol->name;
+                output << "\t" << reg_name << " = ";
+                output << "add i32 " << t_symbol->const_value << ", " << "0" << endl;
+                last_reg = reg_name;
+            }
         }
+        cout << last_reg << endl;
     } else {
         perror("no symbol in table");
     }

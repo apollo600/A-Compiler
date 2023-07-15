@@ -10,7 +10,7 @@
 #define KEYWORD_TOKEN(t)    yylval.token = t
 
 int lineno = 1;
-bool DEBUG = false;
+bool DEBUG = true;
 %}
 
 %option noyywrap

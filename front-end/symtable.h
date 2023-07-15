@@ -17,10 +17,6 @@ enum class SymbolType {
     INT_VAR, INT_FUNC, VOID_FUNC
 };
 
-enum class ValueType {
-    CONST, REGISTER
-};
-
 class Symbol
 {
 public:
@@ -33,11 +29,11 @@ public:
     SymbolType symbol_type;
 
     bool initialized;
-    ValueType value_type;
     int const_value;
     string reg_value; 
-    bool is_const;
+    bool is_reg;
     bool is_global;
+    bool is_const;
 
     // 用于变量的定义，有初始值
     Symbol(const string& name, const int& value, const SymbolType& type):

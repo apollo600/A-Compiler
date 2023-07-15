@@ -137,7 +137,10 @@ VarDefList:     VarDef {
                     $$->set_name("VarDefList");
                     $$->set_type(NodeType::JUST_CONCAT);
                 }
-                | VarDefList ',' VarDef { $$->add_child($3); }
+                | VarDefList ',' VarDef { 
+                    cout << "get new vardef" << endl;
+                    $$->add_child($3); 
+                }
                 ;
 
 VarDef:         ConstExpList { 
