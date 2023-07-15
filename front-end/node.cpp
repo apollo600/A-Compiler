@@ -4,18 +4,20 @@
 using namespace std;
 
 std::map<NodeType, std::string> node_type2name{
-    {NodeType::error, "error"},
     {NodeType::ADD_EXP, "ADD_EXP"},
     {NodeType::BLOCK, "BLOCK"},
     {NodeType::CONST, "CONST"},
-    {NodeType::VAR_DECL, "VAR_DECL"},
+    {NodeType::error, "error"},
     {NodeType::FUNC_DECL, "FUNC_DECL"},
     {NodeType::FUNC_DEF, "FUNC_DEF"},
+    {NodeType::FUNC_NAME, "FUNC_NAME"},
+    {NodeType::FUNC_PARAMS, "FUNC_PARAMS"},
+    {NodeType::FUNC_TYPE, "FUNC_TYPE"},
     {NodeType::JUST_CONCAT, "JUST_CONCAT"},
     {NodeType::JUST_PASS, "JUST_PASS"},
-    {NodeType::STMT, "STMT"},
-    {NodeType::VAR_DECL_WITH_IDENT, "VAR_DECL_WITH_IDENT"},
     {NodeType::JUST_CONTINUE, "JUST_CONTINUE"},
+    {NodeType::STMT, "STMT"},
+    {NodeType::VAR_DECL, "VAR_DECL"},
     {NodeType::VAR_DEF, "VAR_DEF"},
 };
 

@@ -85,11 +85,11 @@ def check_result(returncode, Outfile, TestCase):
 
 if __name__ == "__main__":
     Script = "make"
-    Compiler = "../front-end/parser.out"
+    Compiler = "./parser.out"
     In = "./function_test2021/001_var_defn.sy"
-    IR = "../front-end/main.ll"
+    IR = "./main.ll"
     DEBUG_OUTPUT = "./parser-output.txt"
-    Exe = "../front-end/main.out"
+    Exe = "./main.out"
     Out = re.sub(".sy$", ".out", In)
     TestCase = int(In.split('/')[-1][:3])
 

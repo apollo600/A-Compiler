@@ -17,19 +17,39 @@ enum class SymbolType {
     INT_VAR, INT_FUNC, VOID_FUNC
 };
 
+enum class ValueType {
+    CONST, REGISTER
+};
+
 class Symbol
 {
 public:
+    /*
+    | name | symbol_type |
+            - func       |
+            - var        | initialized | value_type | value |
+    */
     string name;
-    int value;
-    SymbolType type;
+    SymbolType symbol_type;
+
     bool initialized;
+    ValueType value_type;
+    int const_value;
+    string reg_value; 
 
+    // 用于变量的定义
     Symbol(const string& name, const int& value, const SymbolType& type):
-        name(name), value(value), type(type), initialized(true) {}
+        name(name), const_value(value), symbol_type(type), initialized(true) {}
 
-    Symbol(const string& name, const int& value, const SymbolType& type, const bool initialized):
-        name(name), value(value), type(type), initialized(initialized) {}
+    // 用于函数的声明/定义/变量声明
+    Symbol(const string& name, const SymbolType& type):
+        name(name), 
+        symbol_type(type) 
+    {
+        if (type == SymbolType::INT_VAR) {
+            initialized = false;
+        }
+    }
 };
 
 class Scope

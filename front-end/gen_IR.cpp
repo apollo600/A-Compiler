@@ -8,30 +8,42 @@ using namespace std;
 
 stack<Scope*> scopes;
 
+static int global_var_index = 0;
+static string last_reg = "";
+
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
 static AST_Node* Track(AST_Node* ast, string node_name);
 static inline Scope* get_cur_scope();
-static void gen_CompRoot(AST_Node*& ast, ofstream& output);
-static void gen_FuncDef(AST_Node*& ast, ofstream& output);
+static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type);
+
+static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
+static void gen_Func_Def(AST_Node*& ast, ofstream& output);
 static void gen_Block(AST_Node*& ast, ofstream& output);
 static void gen_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_Const(AST_Node*& ast, ofstream& output);
-static void gen_Var_Decl_With_Ident(AST_Node*& ast, ofstream& output);
 static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
 static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
+static void gen_LVal(AST_Node*& ast, ofstream& output);
 static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
-static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type);
+static void gen_Func_Name(AST_Node*& ast, ofstream& output);
+static void gen_Func_Type(AST_Node*& ast, ofstream& output);
+static void gen_Func_Params(AST_Node*& ast, ofstream& output);
+static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
 
 map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
-    {NodeType::COMP_ROOT, gen_CompRoot},
-    {NodeType::FUNC_DEF, gen_FuncDef},
+    {NodeType::ADD_EXP, gen_Add_Exp},
     {NodeType::BLOCK, gen_Block},
-    {NodeType::STMT, gen_Stmt},
+    {NodeType::COMP_ROOT, gen_Comp_Root},
     {NodeType::CONST, gen_Const},
-    {NodeType::VAR_DECL_WITH_IDENT, gen_Var_Decl_With_Ident},
+    {NodeType::FUNC_DEF, gen_Func_Def},
+    {NodeType::FUNC_PARAMS, gen_Func_Params},
+    {NodeType::FUNC_NAME, gen_Func_Name},
+    {NodeType::FUNC_TYPE, gen_Func_Type},
     {NodeType::JUST_PASS, gen_Just_Pass},
     {NodeType::JUST_CONCAT, gen_Just_Concat},
+    {NodeType::LVAL, gen_LVal},
+    {NodeType::STMT, gen_Stmt},
     {NodeType::VAR_DECL, gen_Var_Decl},
 };
 
@@ -100,13 +112,17 @@ static inline Scope* get_cur_scope()
     return cur_scope;
 }
 
-static void gen_CompRoot(AST_Node*& ast, ofstream& output)
+static void gen_Comp_Root(AST_Node*& ast, ofstream& output)
 {
     output << "target triple = \"x86_64-pc-windows-msys\"\n" << endl;
-    generate_IR(ast->childs[0], output);
+    cout << ">>> Start generating IR" << endl;
+    scopes.push(new Scope(nullptr));
+    for (AST_Node* comp_unit : ast->childs) {
+        generate_IR(comp_unit, output);
+    }
 }
 
-static void gen_FuncDef(AST_Node*& ast, ofstream& output)
+static void gen_Func_Def(AST_Node*& ast, ofstream& output)
 {
     output << "; func def" << endl;
     output << "define ";
@@ -119,26 +135,23 @@ static void gen_FuncDef(AST_Node*& ast, ofstream& output)
     else {
         // add function symbol
         SymbolType type;
-        AST_Node* name_child = ast->childs[0];
-        if (name_child->childs.size() < 2) {
-            cerr << "incorrect node" << endl;
-        }
-        if (name_child->childs[0]->name == "int") {
+        if (ast->childs[0]->name == "int") {
             type = SymbolType::INT_FUNC;
-        } else if (name_child->childs[0]->name == "void") {
+        } else if (ast->childs[0]->name == "void") {
             type = SymbolType::VOID_FUNC;
         } else {
-            cerr << "unknown function return type" << endl;
+            perror("unknown function return type");
         }
-        Symbol* t_symbol = new Symbol(name_child->childs[1]->name, 0, type);
+
+        Symbol* t_symbol = new Symbol(ast->childs[1]->name, type);
         get_cur_scope()->insert(t_symbol);
         
-        // push new scope
+        // switch to new scope
         scopes.push(new Scope(get_cur_scope()));
     }
     
-    // 遍历子节点
-    for (AST_Node*& node : ast->childs) {
+    // 生成 Block
+    for (AST_Node* node : ast->childs) {
         generate_IR(node, output);
     }
 }
@@ -154,49 +167,60 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
 {
     /* return-stmt */
     if (ast->childs[0]->name == "return") {
-        output << "\tret ";
         // decide return type
         AST_Node* func_def_node = Backtrack(ast, "FuncDef");
         if (!func_def_node) {
             perror("No parent named `FuncDef`");
         }
-        AST_Node* return_type_node = func_def_node->childs[0]->childs[0];
-        
-        if (return_type_node->name == "int")
-            output << "i32 ";
-        else if (return_type_node->name == "void")
+        string func_name = func_def_node->childs[1]->name;
+        Symbol* func_symbol = get_cur_scope()->lookup(func_name);
+
+        if (func_symbol->symbol_type == SymbolType::VOID_FUNC) {
             output << "void" << endl;
-        else
-            perror("unknown function type");
-        generate_IR(ast->childs[1], output);
-        output << endl;
+            return;   
+        } else {
+            if (ast->childs[1]->name == "Number") {
+                output << "\tret ";
+                // return type
+                if (func_symbol->symbol_type == SymbolType::INT_FUNC)
+                    output << "i32 ";
+                else
+                    perror("unknown function type");
+                generate_IR(ast->childs[1], output);
+                output << endl;
+            } else { /* LVal */
+                generate_IR(ast->childs[1], output);
+                output << "\tret ";
+                // return type
+                if (func_symbol->symbol_type == SymbolType::INT_FUNC)
+                    output << "i32 ";
+                else
+                    perror("unknown function type");
+                output << last_reg << endl;
+            }
+        }    
     }
 }
 
 static void gen_Const(AST_Node*& ast, ofstream& output)
 {
     if (ast->name == "Number") {
-        output << ast->value;
+        // 回溯查看是否是InitVal
+        AST_Node* init_val_node = Backtrack(ast, "InitVal");
+        if (init_val_node) {
+            AST_Node* var_def_node = init_val_node->parent;
+            AST_Node* var_ident = var_def_node->childs[0];
+            Symbol* var_symbol = get_cur_scope()->lookup(var_ident->name);
+            var_symbol->const_value = ast->value;
+            var_symbol->initialized = true;
+        } else {
+            output << ast->value;
+        }
         return;
     } else {
         output << ast->name;
         return;
     }
-}
-
-static void gen_Var_Decl_With_Ident(AST_Node*& ast, ofstream& output)
-{
-    assert(ast->childs.size() == 2);
-        
-    if (ast->childs[0]->name == "int") {
-        output << "i32 ";
-    } else if (ast->childs[0]->name == "void") {
-        output << "void ";
-    } else {
-        perror("unknown function type");
-    }
-
-    output << "@" << ast->childs[1]->name;
 }
 
 static void gen_Just_Pass(AST_Node*& ast, ofstream& output)
@@ -213,7 +237,7 @@ static void gen_Just_Concat(AST_Node*& ast, ofstream& output)
 }
 
 static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
-{
+{   
     SymbolType type;
     string ident;
     AST_Node* var_type = ast->childs[0];
@@ -222,7 +246,6 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 
     // proces first ident
     // assign type and first ident
-    // TODO 重构了VarWithIdent
     if (var_type->name == "int") {
         type = SymbolType::INT_VAR;
     } else {
@@ -247,7 +270,7 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
     首先，要继续向下遍历，不能跳过这个表达式；
     然后，这个表达式的值要传给这个初始值，这里初始值在运行时可以被查到，但是在编译时不一定
     所以需要通过寄存器+符号表传值，所有对值的改动都应该反应到符号表里 */
-    Symbol* t_symbol = new Symbol(ident->name, 0, type, false);
+    Symbol* t_symbol = new Symbol(ident->name, type);
     get_cur_scope()->insert(t_symbol);
 
     // 递归执行initval部分
@@ -256,8 +279,20 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
     generate_IR(init_val, output);
 
     // form IR
+    t_symbol = get_cur_scope()->lookup(ident->name);
+    // reg_name
+    string reg_name = "";
+    // `@` or `%`
+    if (scopes.size() == 1) {
+        reg_name += "@";
+    } else {
+        reg_name += "%";
+    }
     // ident
-    output << "@" << ident << " = ";
+    reg_name += t_symbol->name;
+    t_symbol->reg_value = reg_name;
+    
+    output << reg_name << " = ";
     // property
     if (scopes.size() == 1) {
         output << "global ";
@@ -265,14 +300,107 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
         output << "private ";
     }
     // type
-    output << "i32 ";
+    if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+        output << "i32 ";
+    } else {
+        perror("unimplemented var type");
+    }
     // value
-    output << /* register / const */ << " ";
+    if (t_symbol->initialized) {
+        if (t_symbol->value_type == ValueType::CONST) {
+            output << t_symbol->const_value << " ";
+        } else if (t_symbol->value_type == ValueType::REGISTER) {
+            output << t_symbol->reg_value << " ";
+        }
+    } else {
+        perror("uninitialized symbol value");
+    }
     // align
-    output << "align 4" << endl;
+    if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+        output << "align 4 ";
+    } else {
+        perror("unimplemented var type");
+    }
+    // from IR end
+    output << endl;
 }
 
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output)
 {
     return;
+}
+
+static void gen_Func_Name(AST_Node*& ast, ofstream& output)
+{
+    output << "@" << ast->name << " ";
+}
+
+static void gen_Func_Type(AST_Node*& ast, ofstream& output)
+{
+    if (ast->name == "int") {
+        output << "i32 ";
+    } else if (ast->name == "void") {
+        output << "void ";
+    } else {
+        perror("unimplemented function type");
+    }
+}
+
+static void gen_Func_Params(AST_Node*& ast, ofstream& output)
+{
+    if (ast->childs.size() == 0) {
+        output << "() ";
+    } else {
+        perror("unimplemented");
+        return;
+    }
+}
+
+static void gen_LVal(AST_Node*& ast, ofstream& output)
+{
+    AST_Node* ident = ast->childs[0];
+    Symbol* t_symbol = get_cur_scope()->lookup(ident->name);
+    if (t_symbol) {
+        output << t_symbol->reg_value << " ";
+    } else {
+        perror("no symbol in table");
+    }
+}
+
+static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
+{
+    AST_Node* operand_1 = ast->childs[0];
+    AST_Node* operand_2 = ast->childs[1];
+    if (ast->name == "+") {
+        global_var_index++;
+        string reg_name = "%v" + to_string(global_var_index);
+        // @v{global_var_index} = add i32 @a, @b;
+        output << "\t" << reg_name << " = ";
+        output << "add ";
+        // i32
+        output << "i32 ";
+        // two operands
+        generate_IR(operand_1, output);
+        output << ", ";
+        generate_IR(operand_2, output);
+        // last_reg = "@v{global_var_index}"
+        last_reg = reg_name;
+        // endl
+        output << endl;
+    } else if (ast->name == "-") {
+        global_var_index++;
+        string reg_name = "@v" + to_string(global_var_index);
+        // @v{global_var_index} = @a + @b;
+        output << "\t" << reg_name << " = ";
+        output << "sub i32";
+        generate_IR(operand_1, output);
+        output << ", ";
+        generate_IR(operand_2, output);
+        // last_reg = "@v{global_var_index}"
+        last_reg = reg_name;
+        // endl
+        output << endl;
+    } else {
+        perror("unknown add op");
+    }
 }

@@ -51,3 +51,20 @@
 ```
 
 另一个需要修改的地方是ConstDecl，修改的方法是一样的。
+
+## 表达式生成
+
+​                    <VarDef, , JUST_CONTINUE> 
+​                        <a, , CONST> 
+​                        <ConstExpList, , error> 
+​                        <InitVal, , error> 
+​                            <Exp, , JUST_PASS> 
+​                                <AddExp, , JUST_PASS> 
+​                                    <MulExp, , JUST_PASS> 
+​                                        <UnaryExp, , JUST_PASS> 
+​                                            <PrimaryExp, , JUST_PASS> 
+​                                                <Number, 3, CONST> 
+
+表达式如上，目前只需要向下传送，然后进行常数折叠；如果涉及到变量的表达式，需要逐层返回计算结果，最后通过Exp将结果寄存器返回给InitVal。
+
+传回InitVal的方式通过写**符号表**，这样不需要直接使用全局量。但是这样需要向下传输符号的名称。==之后要去掉中间的冗余节点。==这样需要修改符号表，将value变成一个union，可以存储常数值，或者是寄存器的地址。

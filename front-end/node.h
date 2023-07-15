@@ -10,9 +10,14 @@ extern int lineno;
 extern std::string filename;
 
 enum class NodeType {
-    error, JUST_CONCAT, JUST_PASS, FUNC_DEF, FUNC_DECL, BLOCK, 
-    STMT, ADD_EXP, CONST, VAR_DECL_WITH_IDENT, COMP_ROOT,
-    VAR_DECL, JUST_CONTINUE, VAR_DEF
+    COMP_ROOT,
+    CONST, 
+    error, 
+    JUST_CONCAT, JUST_PASS, JUST_CONTINUE, 
+    FUNC_DEF, FUNC_DECL, FUNC_TYPE, FUNC_NAME, FUNC_PARAMS,
+    VAR_DEF, VAR_DECL, 
+    STMT, BLOCK, LVAL,
+    ADD_EXP, 
 };
 
 class AST_Node {
