@@ -6,7 +6,13 @@
 #include <fstream>
 using namespace std;
 
-class AddExpIR
+class IR
+{
+public:
+    virtual void print(ofstream& output) = 0;
+};
+
+class AddExpIR: public IR
 {
 public:
     string inst_name;
@@ -17,7 +23,7 @@ public:
     void print(ofstream& output);
 };
 
-class ReturnStmtIR
+class ReturnStmtIR: public IR
 {
 public:
     bool is_const;
@@ -28,14 +34,36 @@ public:
     void print(ofstream& output);
 };
 
-class FuncDefIR
+class FuncDefIR: public IR
 {
 public:
     string comment = "\n; func def";
     string var_type;
     string func_name;
     vector<string> param_list;
-    
+
+    void print(ofstream& output);
+};
+
+class VarDefIR: public IR
+{
+public:
+    bool is_global;
+
+    // global
+    // @a = global i32 3 align 4 
+    string var_name;
+    bool is_const;
+    string var_type;
+
+    bool is_reg;
+    int init_value;
+    string init_reg;
+    int align_bytes;
+
+    // local
+    // only record in symbol table
+
     void print(ofstream& output);
 };
 

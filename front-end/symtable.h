@@ -39,9 +39,13 @@ public:
     bool is_const;
     bool is_global;
 
-    // 用于变量的定义
+    // 用于变量的定义，有初始值
     Symbol(const string& name, const int& value, const SymbolType& type):
         name(name), const_value(value), symbol_type(type), initialized(true) {}
+
+    // 用于变量的定义，有寄存器名称
+    Symbol(const string& name, const string& reg_value, const SymbolType& type):
+        name(name), reg_value(reg_value), symbol_type(type), initialized(true) {}
 
     // 用于函数的声明/定义/变量声明
     Symbol(const string& name, const SymbolType& type):

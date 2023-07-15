@@ -22,3 +22,13 @@ void FuncDefIR::print(ofstream& output)
         output << s << ", ";
     output << ") ";
 }
+
+void VarDefIR::print(ofstream& output)
+{
+    if (!is_global) {
+        return;
+    }
+
+    output << "@" << var_name << " = " << "global " << var_type << " "
+    << init_value << " align " << align_bytes << endl;
+}

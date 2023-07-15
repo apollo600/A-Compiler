@@ -32,7 +32,7 @@ static void gen_Func_Type(AST_Node*& ast, ofstream& output);
 static void gen_Func_Params(AST_Node*& ast, ofstream& output);
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
 
-static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type);
+static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const);
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
 static string gen_Func_Param(AST_Node*& ast);
 
@@ -236,15 +236,10 @@ static void gen_Const(AST_Node*& ast, ofstream& output)
         // 回溯查看是否是InitVal
         AST_Node* init_val_node = Backtrack(ast, "InitVal");
         if (init_val_node) {
-            AST_Node* var_def_node = init_val_node->parent;
-            AST_Node* var_ident = var_def_node->childs[0];
-            Symbol* var_symbol = get_cur_scope()->lookup(var_ident->name);
-            var_symbol->const_value = ast->value;
-            var_symbol->initialized = true;
+            last_const = ast->value;
         } else {
             output << ast->value;
         }
-        last_const = ast->value;
         return;
     } else {
         output << ast->name;
@@ -283,31 +278,72 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 
     // 遍历VarDefList
     for (AST_Node* var_def : var_def_list->childs) {
-        gen_Var_Def(var_def, output, type);
+        gen_Var_Def(var_def, output, type, false);
     }
 }
 
-static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
+static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const)
 {
+    VarDefIR ir;
+
+    // var type
+    if (type == SymbolType::INT_VAR) {
+        ir.var_type = "i32";
+        ir.align_bytes = 4;
+    }
+    else
+        perror("unknown var type");
+
+    // is const
+    ir.is_const = is_const;
+
+    // `@` or `%`
+    if (scopes.size() == 1) {
+        ir.is_global = true;
+    } else {
+        ir.is_global = false;
+    }
+
+    // var name
     AST_Node* ident = ast->childs[0];
+    ir.var_name = ident->name;
+
     /* 检查是不是数组，即是否有VarDefList
     按照当前具体语法树的写法，直接使用第三个节点 */
     AST_Node* init_val = ast->childs[2];
+
+    // 递归执行initval部分
+    /* 首先需要把后面表达式的结果计算出来，最终保存到一个寄存器，
+    然后把这个寄存器的值作为这个变量的初始值，传值可以通过全局变量 */
+    generate_IR(init_val, output);
+    if (ir.is_global) { /* global/const */
+        ir.is_reg = false;
+        ir.init_value = last_const;
+    }
+    else { /* reg */
+        ir.is_reg = true;
+        ir.init_reg = last_reg;
+    }
 
     // insert node to symbol table
     /* 这个部分比较难，即获取这个表达式的值，参照另一个代码，
     首先，要继续向下遍历，不能跳过这个表达式；
     然后，这个表达式的值要传给这个初始值，这里初始值在运行时可以被查到，但是在编译时不一定
     所以需要通过寄存器+符号表传值，所有对值的改动都应该反应到符号表里 */
-    Symbol* t_symbol = new Symbol(ident->name, type);
+    Symbol* t_symbol;
+    if (ir.is_reg) {
+        t_symbol = new Symbol(ir.var_name, ir.init_reg, type);
+    } else {
+        t_symbol = new Symbol(ir.var_name, ir.init_value, type);
+        if (ir.is_global)
+            t_symbol->reg_value = "@" + ir.var_name;
+    }
+    t_symbol->is_global = ir.is_global;
     get_cur_scope()->insert(t_symbol);
 
-    // 递归执行initval部分
-    /* 首先需要把后面表达式的结果计算出来，最终保存到一个寄存器，
-    然后把这个寄存器的值作为这个变量的初始值，传值可以通过全局变量 */
-    generate_IR(init_val, output);
+    ir.print(output);
 
-    // form IR
+    /* // form IR
     t_symbol = get_cur_scope()->lookup(ident->name);
     // reg_name
     string reg_name = "";
@@ -353,7 +389,7 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
         perror("unimplemented var type");
     }
     // from IR end
-    output << endl;
+    output << endl; */
 }
 
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output)
