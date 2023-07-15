@@ -9,6 +9,7 @@
 
 import re
 import os
+import sys
 import datetime
 import subprocess
 
@@ -84,14 +85,16 @@ def check_result(returncode, Outfile, TestCase):
 
 
 if __name__ == "__main__":
+    args = sys.argv
+
     Script = "make"
     Compiler = "./parser.out"
-    In = "./function_test2021/001_var_defn.sy"
+    In = args[1] # "./function_test2021/001_var_defn.sy"
     IR = "./main.ll"
     DEBUG_OUTPUT = "./parser-output.txt"
     Exe = "./main.out"
     Out = re.sub(".sy$", ".out", In)
-    TestCase = int(In.split('/')[-1][:3])
+    TestCase = int(In.split("\\")[-1][:3])
 
     try:
         init_test(Script)
