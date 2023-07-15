@@ -14,7 +14,7 @@ CompRoot创建一个根作用域，parser.ypp中全局维护一个当前Scope
 using namespace std;
 
 enum class SymbolType {
-    INT_VAR, INT_FUNC, VOID_FUNC, 
+    INT_VAR, INT_FUNC, VOID_FUNC
 };
 
 class Symbol
@@ -23,9 +23,13 @@ public:
     string name;
     int value;
     SymbolType type;
+    bool initialized;
 
     Symbol(const string& name, const int& value, const SymbolType& type):
-        name(name), value(value), type(type) {}
+        name(name), value(value), type(type), initialized(true) {}
+
+    Symbol(const string& name, const int& value, const SymbolType& type, const bool initialized):
+        name(name), value(value), type(type), initialized(initialized) {}
 };
 
 class Scope

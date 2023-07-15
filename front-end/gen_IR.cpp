@@ -21,6 +21,7 @@ static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
 static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
 static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
+static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type);
 
 map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::COMP_ROOT, gen_CompRoot},
@@ -215,29 +216,47 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 {
     SymbolType type;
     string ident;
-    AST_Node* meta = ast->childs[0];
+    AST_Node* var_type = ast->childs[0];
     AST_Node* var_def_list = ast->childs[1];
+    assert(var_def_list->name == "VarDefList");
 
     // proces first ident
     // assign type and first ident
     // TODO 重构了VarWithIdent
-    assert(meta->childs.size() >= 2);
-    if (meta->childs[0]->name == "int") {
+    if (var_type->name == "int") {
         type = SymbolType::INT_VAR;
     } else {
         perror("unknown variable type");
     }
-    ident = meta->childs[1]->name;
+
+    // 遍历VarDefList
+    for (AST_Node* var_def : var_def_list->childs) {
+        gen_Var_Def(var_def, output, type);
+    }
+}
+
+static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type)
+{
+    AST_Node* ident = ast->childs[0];
+    /* 检查是不是数组，即是否有VarDefList
+    按照当前具体语法树的写法，直接使用第三个节点 */
+    AST_Node* init_val = ast->childs[2];
 
     // insert node to symbol table
-    AST_Node* first_var_def = var_def_list->childs[0];
-    assert(first_var_def->childs[0]->name == "ConstExpList");
-    AST_Node* initial_value_node = Track(first_var_def, "Number");
-    Symbol* t_symbol = new Symbol(ident, initial_value_node->value, type);
+    /* 这个部分比较难，即获取这个表达式的值，参照另一个代码，
+    首先，要继续向下遍历，不能跳过这个表达式；
+    然后，这个表达式的值要传给这个初始值，这里初始值在运行时可以被查到，但是在编译时不一定
+    所以需要通过寄存器+符号表传值，所有对值的改动都应该反应到符号表里 */
+    Symbol* t_symbol = new Symbol(ident->name, 0, type, false);
     get_cur_scope()->insert(t_symbol);
 
+    // 递归执行initval部分
+    /* 首先需要把后面表达式的结果计算出来，最终保存到一个寄存器，
+    然后把这个寄存器的值作为这个变量的初始值，传值可以通过全局变量 */
+    generate_IR(init_val, output);
+
     // form IR
-    // name
+    // ident
     output << "@" << ident << " = ";
     // property
     if (scopes.size() == 1) {
@@ -248,7 +267,7 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
     // type
     output << "i32 ";
     // value
-    output << initial_value_node->value << " ";
+    output << /* register / const */ << " ";
     // align
     output << "align 4" << endl;
 }
