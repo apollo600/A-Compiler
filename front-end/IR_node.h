@@ -1,6 +1,7 @@
 #ifndef IR_NODE_H
 #define IR_NODE_H
 
+#include "node.h"
 #include <string>
 #include <vector>
 #include <fstream>
@@ -12,7 +13,7 @@ public:
     virtual void print(ofstream& output) = 0;
 };
 
-class AddExpIR: public IR
+class BinaryExpIR: public IR
 {
 public:
     string inst_name;
@@ -105,14 +106,13 @@ public:
     void print(ofstream& output);
 };
 
-class MulExpIR: public IR
+class IfElseStmtIR: public IR
 {
 public:
-    string inst_name;
-    string var_type;
-    string operand_1;
-    string operand_2;
-    string ret_reg;
+    string cond_reg;
+    string label_name;
+    AST_Node* true_BB;
+    AST_Node* false_BB;
 
     void print(ofstream& output);
 };

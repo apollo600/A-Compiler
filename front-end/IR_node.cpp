@@ -12,7 +12,7 @@ static void make_table(ofstream& output)
     }
 }
 
-void AddExpIR::print(ofstream& output)
+void BinaryExpIR::print(ofstream& output)
 {
     make_table(output);
     output << return_reg << " = " << inst_name << " " << var_type
@@ -86,9 +86,19 @@ void LValIR::print(ofstream& output)
         << right_const_value << ", " << "0" << endl;
 }
 
-void MulExpIR::print(ofstream& output)
+void IfElseStmtIR::print(ofstream& output)
 {
     make_table(output);
-    output << ret_reg << " = " << inst_name << " " << var_type << " "
-    << operand_1 << ", " << operand_2 << endl;
+    // br i1 <cond_reg>, label %if.true, label %if.false
+    output << "br i1 " << cond_reg << ", " << "label %" << label_name + ".true"
+    << ", " << "label %" << label_name + ".false" << endl;
+
+    // true BB
+    output << label_name + ".true:" << endl;
+    generate_IR(true_BB, output);
+    // false BB
+    output << label_name + ".false:" << endl;
+    generate_IR(false_BB, output);
+    // end
+    output << label_name + ".end:" << endl;
 }

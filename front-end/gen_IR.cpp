@@ -9,10 +9,14 @@ using namespace std;
 
 stack<Scope*> scopes;
 
+/* used for variant */
 static int global_var_index = 0;
 static bool is_reg = false;
 static string last_reg = "";
 static int last_const = 0;
+
+/* used for branch */
+static int global_branch_index = 0;
 
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
 static AST_Node* Track(AST_Node* ast, string node_name);
@@ -22,6 +26,7 @@ static inline Scope* get_cur_scope();
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Block(AST_Node*& ast, ofstream& output);
 static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
+static void gen_Cond(AST_Node*& ast, ofstream& output);
 static void gen_Func_Call(AST_Node*& ast, ofstream& output);
 static void gen_Func_Def(AST_Node*& ast, ofstream& output);
 static void gen_Ident(AST_Node*& ast, ofstream& output);
@@ -31,6 +36,7 @@ static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
 static void gen_LVal(AST_Node*& ast, ofstream& output);
 static void gen_Mul_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Number(AST_Node*& ast, ofstream& output);
+static void gen_Rel_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_String(AST_Node*& ast, ofstream& output);
 static void gen_Unary_Exp(AST_Node*& ast, ofstream& output);
@@ -39,6 +45,7 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
 static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const);
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output);
 static string gen_Func_Def_Param(AST_Node*& ast);
 static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_type);
 
@@ -54,6 +61,7 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::LVAL, gen_LVal},
     {NodeType::MUL_EXP, gen_Mul_Exp},
     {NodeType::NUMBER, gen_Number},
+    {NodeType::REL_EXP, gen_Rel_Exp},
     {NodeType::STMT, gen_Stmt},
     {NodeType::STRING, gen_String},
     {NodeType::UNARY_EXP, gen_Unary_Exp},
@@ -62,6 +70,9 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
 
 void generate_IR(AST_Node*& ast, ofstream& output)
 {
+    if (ast == nullptr) {
+        return;
+    }
     const NodeType& type = ast->type;
     if (IR_handler_Table.count(type)) {
         IR_handler_Table[type](ast, output);
@@ -260,6 +271,17 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
     else if (ast->name == "assign =") {
         gen_Assign_Stmt(ast, output);
     }
+    /* if-else-stmt */
+    else if (ast->childs[0]->name == "if") {
+        gen_If_Else_Stmt(ast, output);
+    }
+    /* block */
+    else if (ast->childs[0]->name == "Block") {
+        generate_IR(ast->childs[0], output);
+    }
+    else {
+        perror("unimplemented statement");
+    }
 }
 
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output)
@@ -339,6 +361,37 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
             t_symbol->initialized = true;
         }
     }
+}
+
+static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
+{
+    // 需要创建新的作用域
+    scopes.push(get_cur_scope());
+    // 一定要嵌套实现，if成立，进入对应的子树；if不成立，进入对应的子树/直接返回
+    // else if可以看成是else{ if ... }
+    // 这里需要设置标签点用来跳转, if-i.true, if-i.false, if-i.end
+    global_branch_index++;
+    string label_name = "if-" + to_string(global_branch_index);
+    // 跳转的结果即Cond存储到最近一次的寄存器中
+    assert(ast->childs.size() >= 2);
+    generate_IR(ast->childs[1], output);
+    assert(is_reg);
+    string cond_reg = last_reg;
+    // 然后生成跳转语句
+    IfElseStmtIR ir;
+    ir.cond_reg = cond_reg;
+    ir.label_name = label_name;
+    if (ast->childs.size() >= 3)
+        ir.true_BB = ast->childs[2];
+    else
+        ir.true_BB = nullptr;
+    if (ast->childs.size() >= 4)
+        ir.false_BB = ast->childs[3];
+    else
+        ir.false_BB = nullptr;
+    ir.print(output);
+    // 退出当前作用域
+    scopes.pop();
 }
 
 static void gen_Number(AST_Node*& ast, ofstream& output)
@@ -555,7 +608,7 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
 
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
 {
-    AddExpIR ir;
+    BinaryExpIR ir;
 
     if (ast->name == "+")
         ir.inst_name = "add";
@@ -593,7 +646,7 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
 {
     string op = ast->name;
     if (op == "-") {
-        AddExpIR ir;
+        BinaryExpIR ir;
         // inst
         ir.inst_name = "sub";
         // return reg
@@ -623,7 +676,7 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
 
 static void gen_Mul_Exp(AST_Node*& ast, ofstream& output)
 {
-    MulExpIR ir;
+    BinaryExpIR ir;
     // inst
     if (ast->name == "*") {
         ir.inst_name = "mul";
@@ -637,7 +690,7 @@ static void gen_Mul_Exp(AST_Node*& ast, ofstream& output)
     // return reg
     global_var_index++;
     string reg_name = "%v" + to_string(global_var_index);
-    ir.ret_reg = reg_name;
+    ir.return_reg = reg_name;
     // operand 1, 2
     AST_Node* operand_1 = ast->childs[0];
     AST_Node* operand_2 = ast->childs[1];
@@ -655,6 +708,46 @@ static void gen_Mul_Exp(AST_Node*& ast, ofstream& output)
     ir.var_type = "i32";
 
     ir.print(output);
-    last_reg = ir.ret_reg;
+    last_reg = ir.return_reg;
+    is_reg = true;
+}
+
+static void gen_Rel_Exp(AST_Node*& ast, ofstream& output)
+{
+    BinaryExpIR ir;
+    // inst
+    if (ast->name == ">") {
+        ir.inst_name = "icmp sgt";
+    } else if (ast->name == "<") {
+        ir.inst_name = "icmp slt";
+    } else if (ast->name == ">=") {
+        ir.inst_name = "icmp sge";
+    } else if (ast->name == "<=") {
+        ir.inst_name = "icmp sle";
+    } else {
+        perror("unimplemented op type");
+    }
+    // return reg
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.return_reg = reg_name;
+    // operand 1, 2
+    AST_Node* operand_1 = ast->childs[0];
+    AST_Node* operand_2 = ast->childs[1];
+    generate_IR(operand_1, output);
+    if (is_reg)
+        ir.operand_1 = last_reg;
+    else
+        ir.operand_1 = to_string(last_const);
+    generate_IR(operand_2, output);
+    if (is_reg)
+        ir.operand_2 = last_reg;
+    else
+        ir.operand_2 = to_string(last_const);
+    // var type
+    ir.var_type = "i32";
+
+    ir.print(output);
+    last_reg = ir.return_reg;
     is_reg = true;
 }
