@@ -293,7 +293,7 @@ VarDeclWithIdent:   BType Ident {
 BType:          T_INT { 
                     $$ = new AST_Node();
                     $$->set_name("int");
-                    $$->set_type(NodeType::CONST);
+                    $$->set_type(NodeType::STRING);
                 }
                 ;
 
@@ -365,7 +365,7 @@ Stmt:           LVal '=' Exp ';' {
                 | T_RETURN Exp ';' {
                     AST_Node* child = new AST_Node();
                     child->set_name("return");
-                    child->set_type(NodeType::CONST);
+                    child->set_type(NodeType::STRING);
                     $$ = new AST_Node(child, $2, nullptr);
                     $$->set_name("Stmt");
                     $$->set_type(NodeType::STMT);
@@ -531,7 +531,7 @@ Ident:          T_IDENT {
                     $$ = new AST_Node(); 
                     $$->set_name(*$1);
                     delete $1; 
-                    $$->set_type(NodeType::CONST);
+                    $$->set_type(NodeType::IDENT);
                 }
                 ;
 
@@ -539,7 +539,7 @@ Number:         T_NUMBER {
                     $$ = new AST_Node(); 
                     $$->set_value($1); 
                     $$->set_name("Number"); 
-                    $$->set_type(NodeType::CONST);
+                    $$->set_type(NodeType::NUMBER);
                 }
                 ;
 

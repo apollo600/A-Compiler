@@ -10,6 +10,7 @@ using namespace std;
 stack<Scope*> scopes;
 
 static int global_var_index = 0;
+static bool is_reg = false;
 static string last_reg = "";
 static int last_const = 0;
 
@@ -21,7 +22,9 @@ static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
 static void gen_Func_Def(AST_Node*& ast, ofstream& output);
 static void gen_Block(AST_Node*& ast, ofstream& output);
 static void gen_Stmt(AST_Node*& ast, ofstream& output);
-static void gen_Const(AST_Node*& ast, ofstream& output);
+static void gen_Number(AST_Node*& ast, ofstream& output);
+static void gen_Ident(AST_Node*& ast, ofstream& output);
+static void gen_String(AST_Node*& ast, ofstream& output);
 static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
 static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
 static void gen_LVal(AST_Node*& ast, ofstream& output);
@@ -34,21 +37,24 @@ static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
 
 static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const);
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output);
 static string gen_Func_Param(AST_Node*& ast);
 
 map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::ADD_EXP, gen_Add_Exp},
     {NodeType::BLOCK, gen_Block},
     {NodeType::COMP_ROOT, gen_Comp_Root},
-    {NodeType::CONST, gen_Const},
     {NodeType::FUNC_DEF, gen_Func_Def},
     {NodeType::FUNC_PARAMS, gen_Func_Params},
     {NodeType::FUNC_NAME, gen_Func_Name},
     {NodeType::FUNC_TYPE, gen_Func_Type},
+    {NodeType::IDENT, gen_Ident},
     {NodeType::JUST_PASS, gen_Just_Pass},
     {NodeType::JUST_CONCAT, gen_Just_Concat},
     {NodeType::LVAL, gen_LVal},
+    {NodeType::NUMBER, gen_Number},
     {NodeType::STMT, gen_Stmt},
+    {NodeType::STRING, gen_String},
     {NodeType::VAR_DECL, gen_Var_Decl},
 };
 
@@ -193,6 +199,10 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
     /* return-stmt */
     if (ast->childs[0]->name == "return") {
         gen_Return_Stmt(ast, output);   
+    } 
+    /* assign-stmt */
+    else if (ast->childs[0]->name == "assign =") {
+        gen_Assign_Stmt(ast, output);
     }
 }
 
@@ -217,37 +227,58 @@ static void gen_Return_Stmt(AST_Node*& ast, ofstream& output)
     }
 
     // get return reg/const       
-    if (ast->childs[1]->name == "Number") { /* const */
-        ir.is_const = true;
-        generate_IR(ast->childs[1], output);
-        ir.return_const = last_const;
-    } else { /* LVal */
+    generate_IR(ast->childs[1], output);
+    if (is_reg) {
         ir.is_const = false;
-        generate_IR(ast->childs[1], output);
         ir.return_reg = last_reg;
+    } else {
+        ir.is_const = true;
+        ir.return_const = last_const;
     }
 
     ir.print(output);
 }
 
-static void gen_Const(AST_Node*& ast, ofstream& output)
+static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
 {
-    if (ast->name == "Number") {
-        // 回溯查看是否是InitVal
-        AST_Node* init_val_node = Backtrack(ast, "InitVal");
-        if (init_val_node) {
-            string var_name = init_val_node->parent->childs[0]->name;
-            Symbol* t_symbol = get_cur_scope()->lookup(var_name);
-            t_symbol->is_reg = false;
-            last_const = ast->value;
-        } else {
-            output << ast->value;
-        }
-        return;
+    // name
+    AST_Node* lval_node = ast->childs[0];
+    string lval_name = "";
+    if (lval_node->childs[0]->type == NodeType::IDENT) {
+        lval_name = lval_node->childs[0]->name;
     } else {
-        output << ast->name;
-        return;
+        perror("unimplemented");
     }
+    // symbol
+    Symbol* t_symbol = get_cur_scope()->lookup(lval_name);
+    // 获得值
+    generate_IR(ast->childs[1], output);
+    if (is_reg) {
+        perror("unmet");
+    } else {
+        t_symbol->is_reg = false;
+        t_symbol->const_value = last_const;
+        t_symbol->initialized = true;
+    }
+}
+
+static void gen_Number(AST_Node*& ast, ofstream& output)
+{
+    is_reg = false;
+    last_const = ast->value;
+    return;
+}
+
+static void gen_Ident(AST_Node*& ast, ofstream& output)
+{
+    output << ast->name;
+    return;
+}
+
+static void gen_String(AST_Node*& ast, ofstream& output)
+{
+    output << ast->name;
+    return;
 }
 
 static void gen_Just_Pass(AST_Node*& ast, ofstream& output)
@@ -281,7 +312,10 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 
     // 遍历VarDefList
     for (AST_Node* var_def : var_def_list->childs) {
-        gen_Var_Def(var_def, output, type, false);
+        if (var_def->name == "initial =")
+            gen_Var_Def(var_def, output, type, false);
+        else
+            gen_Var_Def(var_def, output, type, false);
     }
 }
 
@@ -313,16 +347,20 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     // decl / def
     if (ast->childs.size() == 1) { /* decl */
         return;
+    } else {
+        assert(ast->name == "initial =");
     }
 
     // gen_const will fill the `is_reg` property
-    AST_Node* init_val = ast->childs[2];
+    AST_Node* init_val = ast->childs[1];
     generate_IR(init_val, output);
 
     // value
-    if (t_symbol->is_reg) {
+    if (is_reg) {
+        t_symbol->is_reg = true;
         t_symbol->reg_value = last_reg;
     } else {
+        t_symbol->is_reg = false;
         t_symbol->const_value = last_const;
     }
 
@@ -410,18 +448,20 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
                 output << "load i32, i32* " << t_symbol->reg_value;
                 output << ", align 4" << endl;
                 last_reg = reg_name;
+                is_reg = true;
             }
         } else {
             if (t_symbol->is_reg) {
                 last_reg = t_symbol->reg_value;
+                is_reg = true;
             } else {
                 string reg_name = "%" + t_symbol->name;
                 output << "\t" << reg_name << " = ";
                 output << "add i32 " << t_symbol->const_value << ", " << "0" << endl;
                 last_reg = reg_name;
+                is_reg = true;
             }
         }
-        cout << last_reg << endl;
     } else {
         perror("no symbol in table");
     }
@@ -454,4 +494,5 @@ static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
     ir.print(output);
 
     last_reg = ir.return_reg;
+    is_reg = true;
 }

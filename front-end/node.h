@@ -11,7 +11,7 @@ extern std::string filename;
 
 enum class NodeType {
     COMP_ROOT,
-    CONST, 
+    STRING, NUMBER, IDENT,
     error, 
     JUST_CONCAT, JUST_PASS, JUST_CONTINUE, 
     FUNC_DEF, FUNC_DECL, FUNC_TYPE, FUNC_NAME, FUNC_PARAMS,
