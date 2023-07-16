@@ -13,7 +13,7 @@ extern int yylex_destroy(void);
 // extern int yydebug;
 
 int main(int argc, char *argv[]) {
-    /* yydebug = 1; */
+    // yydebug = 1;
 
     if (argc < 2) {
         cout << ">>> Using stdin as input" << endl;

@@ -1,4 +1,4 @@
-.PHONY: run all
+.PHONY: run all clean
 
 SRC = ./function_test2021/001_var_defn.sy 
 IR = ./main.ll
@@ -10,3 +10,6 @@ all:
 run: ./parser.out
 	$(MAKE) -C ../front-end/
 	$< ${SRC} -o ${IR} 2>&1 > ${OUTPUT}
+
+clean:
+	$(MAKE) -C ../front-end/ clean

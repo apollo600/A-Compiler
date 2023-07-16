@@ -12,6 +12,8 @@ void yyerror (AST_Node*& ast, const char* s);
 #define RED_COLOR "\033[1;31m"
 #define RESET_COLOR "\033[0m"
 
+#define YYDEBUG 1
+
 %}
 
 %parse-param { AST_Node*& ast }
@@ -124,11 +126,14 @@ ConstInitValList:       ConstInitVal { $$ = new AST_Node($1, nullptr); $$->set_n
                         | ConstInitValList ',' ConstInitVal { $$->add_child($3); }
                         ;
 
-VarDecl:        VarDeclWithIdent VarDefList ';' { 
-                    $$ = new AST_Node($1->childs[0], $2, nullptr);
-                    $2->childs[0]->childs.insert($2->childs[0]->childs.begin(), $1->childs[1]);
+VarDecl:        BType VarDefList ';' { 
+                    $$ = new AST_Node($1, $2, nullptr);
                     $$->set_name("VarDecl"); 
                     $$->set_type(NodeType::VAR_DECL);
+                    /* $$ = new AST_Node($1->childs[0], $3, nullptr);
+                    $3->childs[0]->childs.insert($3->childs[0]->childs.begin(), $1->childs[1]);
+                    $$->set_name("VarDecl"); 
+                    $$->set_type(NodeType::VAR_DECL); */
                 }
                 ;
 
@@ -143,21 +148,36 @@ VarDefList:     VarDef {
                 }
                 ;
 
-VarDef:         ConstExpList { 
-                    $$ = new AST_Node($1, nullptr); 
+VarDef:         Ident {
+                    $$ = new AST_Node($1, nullptr);
                     $$->set_name("VarDef"); 
                     $$->set_type(NodeType::JUST_PASS);
                 }
-                | ConstExpList '=' InitVal {
+                | Ident '=' InitVal {
                     $$ = new AST_Node($1, $3, nullptr);
+                    $$->set_name("initial ="); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                | Ident ConstExpList {
+                    $$ = new AST_Node($1, $2, nullptr); 
+                    $$->set_name("VarDef"); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
+                | Ident ConstExpList '=' InitVal {
+                    $$ = new AST_Node($1, $2, $4, nullptr);
                     $$->set_name("initial =");
                     $$->set_name("VarDef");
                     $$->set_type(NodeType::JUST_PASS);
                 }
                 ;
 
-ConstExpList:   %empty { $$ = new AST_Node(); $$->set_name("ConstExpList"); }
-                | ConstExpList '[' ConstExp ']' { $$->add_child($3); }
+ConstExpList:   '[' ConstExp ']' { 
+                    $$ = new AST_Node($2); 
+                    $$->set_name("ConstExpList"); 
+                }
+                | ConstExpList '[' ConstExp ']' { 
+                    $$->add_child($3); 
+                }
                 ;
 
 InitVal:        Exp { 

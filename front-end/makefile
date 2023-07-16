@@ -31,7 +31,7 @@ $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 parser.tab.cpp: parser.ypp node.h
-	@# bison $< -d -v --debug
+	# bison $< -d -v --debug
 	bison $< -d
 
 scanner.lex.cpp: scanner.l parser.tab.cpp
