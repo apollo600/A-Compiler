@@ -103,7 +103,7 @@ ConstDef:       '=' ConstInitVal {
                     child1->set_name("initial =");
                     $$ = new AST_Node(child1, $2, nullptr);
                     $$->set_name("ConstDef");
-                    $$->set_type(NodeType::)
+                    $$->set_type(NodeType::VAR_DECL);
                 }
                 | ConstIndex '=' ConstInitVal {
                     AST_Node* child2 = new AST_Node();
