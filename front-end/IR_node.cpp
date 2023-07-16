@@ -96,13 +96,18 @@ void IfElseStmtIR::print(ofstream& output)
     << ", " << "label %" << label_name + ".false" << "\n" << endl;
 
     // true BB
-    make_table(scopes.size() - 1, output);
+    make_table(scopes.size(), output);
     output << label_name + ".true:" << endl;
     generate_IR(true_BB, output);
     output << endl;
     // false BB
-    make_table(scopes.size() - 1, output);
+    make_table(scopes.size(), output);
     output << label_name + ".false:" << endl;
-    generate_IR(false_BB, output);
+    if (false_BB == nullptr) {
+        make_table(scopes.size() + 1, output);
+        output << "; emtpy block" << endl;
+    }
+    else
+        generate_IR(false_BB, output);
     output << endl;
 }

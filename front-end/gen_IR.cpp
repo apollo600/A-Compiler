@@ -256,7 +256,13 @@ static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_t
 
 static void gen_Block(AST_Node*& ast, ofstream& output)
 {
+    // 需要创建新的作用域
+    if (ast->parent->name != "FuncDef")
+        scopes.push(new Scope(get_cur_scope()));
     generate_IR(ast->childs[0], output);
+    // 退出当前作用域
+    if (ast->parent->name != "FuncDef")
+        scopes.pop();
 }
 
 static void gen_Stmt(AST_Node*& ast, ofstream& output)
@@ -363,8 +369,6 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
 
 static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
 {
-    // 需要创建新的作用域
-    scopes.push(get_cur_scope());
     // 一定要嵌套实现，if成立，进入对应的子树；if不成立，进入对应的子树/直接返回
     // else if可以看成是else{ if ... }
     // 这里需要设置标签点用来跳转, if-i.true, if-i.false, if-i.end
@@ -388,8 +392,6 @@ static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
     else
         ir.false_BB = nullptr;
     ir.print(output);
-    // 退出当前作用域
-    scopes.pop();
 }
 
 static void gen_Number(AST_Node*& ast, ofstream& output)

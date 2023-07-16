@@ -362,9 +362,7 @@ Stmt:           LVal '=' Exp ';' {
                 | T_IF '(' Cond ')' Stmt %prec T_ELSE T_ELSE Stmt {
                     AST_Node* child1 = new AST_Node();
                     child1->set_name("if");
-                    AST_Node* child2 = new AST_Node();
-                    child2->set_name("else");
-                    $$ = new AST_Node(child1, $3, $5, child2, $7, nullptr);
+                    $$ = new AST_Node(child1, $3, $5, $7, nullptr);
                     $$->set_name("Stmt");
                     $$->set_type(NodeType::STMT);
                 }
