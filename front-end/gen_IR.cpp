@@ -32,6 +32,7 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Func_Call(AST_Node*& ast, ofstream& output);
+static void gen_Unary_Exp(AST_Node*& ast, ofstream& output);
 
 static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const);
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
@@ -52,6 +53,7 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::NUMBER, gen_Number},
     {NodeType::STMT, gen_Stmt},
     {NodeType::STRING, gen_String},
+    {NodeType::UNARY_EXP, gen_Unary_Exp},
     {NodeType::VAR_DECL, gen_Var_Decl},
 };
 
@@ -502,6 +504,8 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
         if (t_symbol->is_global) {
             if (t_symbol->symbol_type == SymbolType::INT_VAR) {
                 LValIR ir;
+                // type
+                ir.is_global = true;
                 // left_reg_name
                 global_var_index++;
                 string reg_name = "%v" + to_string(global_var_index);
@@ -526,9 +530,17 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
                 last_reg = t_symbol->reg_value;
                 is_reg = true;
             } else {
+                LValIR ir;
+                ir.is_global = false;
                 string reg_name = "%" + t_symbol->name;
-                output << reg_name << " = ";
-                output << "add i32 " << t_symbol->const_value << ", " << "0" << endl;
+                ir.left_reg_name = reg_name;
+                if (t_symbol->symbol_type == SymbolType::INT_VAR)
+                    ir.var_type = "i32";
+                else
+                    perror("unknown type");
+                ir.right_const_value = t_symbol->const_value;
+                
+                ir.print(output);
                 last_reg = reg_name;
                 is_reg = true;
             }
@@ -572,4 +584,36 @@ static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
 
     last_reg = ir.return_reg;
     is_reg = true;
+}
+
+static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
+{
+    string op = ast->name;
+    if (op == "-") {
+        AddExpIR ir;
+        // inst
+        ir.inst_name = "sub";
+        // return reg
+        global_var_index++;
+        string reg_name = "%v" + to_string(global_var_index);
+        ir.return_reg = reg_name;
+        // operand 1
+        ir.operand_1 = to_string(0);
+        // operand 2
+        assert(ast->childs.size() == 1);
+        generate_IR(ast->childs[0], output);
+        if (is_reg) {
+            ir.operand_2 = last_reg;
+        } else {
+            ir.operand_2 = to_string(last_const);
+        }
+        ir.var_type = "i32";
+
+        ir.print(output);
+
+        last_reg = ir.return_reg;
+        is_reg = true;
+    } else {
+        perror("unknown op");
+    }
 }

@@ -512,6 +512,7 @@ UnaryExp:       PrimaryExp {
                     $$ = new AST_Node($2, nullptr);
                     $$->set_name(*$1);
                     delete $1;
+                    $$->set_type(NodeType::UNARY_EXP);
                 }
                 ;
 
@@ -519,9 +520,15 @@ FuncRParams:    Exp { $$ = new AST_Node($1, nullptr); $$->set_name("FuncRParams"
                 | FuncRParams ',' Exp { $$->add_child($3); }
                 ;
 
-UnaryOp:        '+' { $$ = new std::string("+"); }
-                | '-' { $$ = new std::string("-"); }
-                | '!' { $$ = new std::string("!"); }
+UnaryOp:        '+' { 
+                    $$ = new std::string("+"); 
+                }
+                | '-' { 
+                    $$ = new std::string("-"); 
+                }
+                | '!' { 
+                    $$ = new std::string("!"); 
+                }
                 ;
 
 PrimaryExp:     '(' Exp ')' { 

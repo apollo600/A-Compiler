@@ -20,6 +20,7 @@ std::map<NodeType, std::string> node_type2name{
     {NodeType::NUMBER, "NUMBER"},
     {NodeType::STMT, "STMT"},
     {NodeType::STRING, "STRING"},
+    {NodeType::UNARY_EXP, "UNARY_EXP"},
     {NodeType::VAR_DECL, "VAR_DECL"},
     {NodeType::VAR_DEF, "VAR_DEF"},
 };

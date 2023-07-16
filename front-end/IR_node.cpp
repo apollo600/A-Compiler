@@ -77,6 +77,9 @@ void AssignIR::print(ofstream& output)
 void LValIR::print(ofstream& output)
 {
     make_table(output);
-    output << left_reg_name << " = " << "load " << var_type << ", "
+    if (is_global)
+        output << left_reg_name << " = " << "load " << var_type << ", "
     << var_type << "* " << right_reg_name << ", " << "align " << align_bytes << endl;
+    else
+        output << left_reg_name << " = " << "add " << var_type << " " << right_const_value << ", " << "0" << endl;
 }

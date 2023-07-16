@@ -91,10 +91,16 @@ public:
 class LValIR: public IR
 {
 public:
+    bool is_global;
     string var_type;
+
+    // global
     string left_reg_name;
     string right_reg_name;
     int align_bytes;
+
+    // local
+    int right_const_value;
 
     void print(ofstream& output);
 };
