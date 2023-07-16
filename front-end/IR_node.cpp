@@ -46,13 +46,12 @@ void FuncDefIR::print(ofstream& output)
 
 void VarDefIR::print(ofstream& output)
 {
-    if (!is_global) {
-        return;
-    }
-
     make_table(scopes.size(), output);
-    output << "@" << var_name << " = " << "global " << var_type << " "
-    << init_value << " align " << align_bytes << endl;
+    if (is_global)
+        output << "@" << var_name << " = " << "global " << var_type << " "
+        << init_value << " align " << align_bytes << endl;
+    else
+        output << "%" << var_name << " = " << "alloca " << var_type << endl;
 }
 
 void FuncCallIR::print(ofstream& output)
@@ -79,13 +78,8 @@ void AssignIR::print(ofstream& output)
 void LValIR::print(ofstream& output)
 {
     make_table(scopes.size(), output);
-    if (is_global)
-        output << left_reg_name << " = " << "load " << var_type << ", "
-        << var_type << "* " << right_reg_name << ", " << "align " 
-        << align_bytes << endl;
-    else
-        output << left_reg_name << " = " << "add " << var_type << " " 
-        << right_const_value << ", " << "0" << endl;
+    output << left_reg_name << " = " << "load " << var_type << ", "
+    << var_type << "* " << right_reg_name << endl;
 }
 
 void IfElseStmtIR::print(ofstream& output)
@@ -98,21 +92,30 @@ void IfElseStmtIR::print(ofstream& output)
     // true BB
     make_table(scopes.size(), output);
     output << label_name + ".true:" << endl;
-    if (true_BB == nullptr) {
+    if (true_BB != nullptr) {
+        generate_IR(true_BB, output);
+    } else {
         make_table(scopes.size() + 1, output);
         output << "; emtpy block" << endl;
-    } else {
-        generate_IR(true_BB, output);
     }
+    // jump to end
+    make_table(scopes.size() + 1, output);
+    output << "br label %" << label_name + ".end" << endl;
     output << endl;
     // false BB
     make_table(scopes.size(), output);
     output << label_name + ".false:" << endl;
-    if (false_BB == nullptr) {
+    if (false_BB != nullptr) {
+        generate_IR(false_BB, output);
+    } else {
         make_table(scopes.size() + 1, output);
         output << "; emtpy block" << endl;
-    } else {
-        generate_IR(false_BB, output);
     }
+    // jump to end
+    make_table(scopes.size() + 1, output);
+    output << "br label %" << label_name + ".end" << endl;
     output << endl;
+    // end BB
+    make_table(scopes.size(), output);
+    output << label_name + ".end:" << endl;
 }

@@ -343,34 +343,26 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
         perror("symbol not found");
     // 获得值
     generate_IR(ast->childs[1], output);
-    if (t_symbol->is_global) { /* 全局值需要store */
-        AssignIR ir;
-        // lval
-        ir.left_reg_name = t_symbol->reg_value;
-        // right value
-        if (is_reg) {
-            ir.right_value = last_reg;
-        } else {
-            ir.right_value = to_string(last_const);
-        }
-        // type
-        if (t_symbol->symbol_type == SymbolType::INT_VAR) {
-            ir.var_type = "i32";
-        } else {
-            perror("unknown type");
-        }
-        ir.print(output);
-    } else { /* 局部值直接修改符号表 */
-        if (is_reg) {
-            t_symbol->is_reg = true;
-            t_symbol->reg_value = last_reg;
-            t_symbol->initialized = true;
-        } else {
-            t_symbol->is_reg = false;
-            t_symbol->const_value = last_const;
-            t_symbol->initialized = true;
-        }
+        
+    AssignIR ir;
+    // lval
+    ir.left_reg_name = t_symbol->reg_value;
+    // right value
+    if (is_reg) {
+        ir.right_value = last_reg;
+    } else {
+        ir.right_value = to_string(last_const);
     }
+    // type
+    if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+        ir.var_type = "i32";
+    } else {
+        perror("unknown type");
+    }
+    ir.print(output);
+    
+    // process symbol table
+    t_symbol->initialized = true;
 }
 
 static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
@@ -482,6 +474,7 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
         t_symbol->reg_value = "@" + t_symbol->name;
     } else {
         t_symbol->is_global = false;
+        t_symbol->reg_value = "%" + t_symbol->name;
     }
 
     // is const
@@ -491,14 +484,12 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
 
     // decl / def
     if (!t_symbol->is_global && ast->childs.size() == 1) { /* decl */
-        return;
-    } 
-
-    if (t_symbol->is_global && ast->childs.size() == 1) {
+        t_symbol->initialized = false;
+    } else if (t_symbol->is_global && ast->childs.size() == 1) {
+        t_symbol->initialized = true;
         t_symbol->const_value = 0;
         t_symbol->is_reg = false;
     } else {
-        // gen_const will fill the `is_reg` property
         AST_Node* init_val = ast->childs[2];
         generate_IR(init_val, output);
 
@@ -510,11 +501,8 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
             t_symbol->is_reg = false;
             t_symbol->const_value = last_const;
         }
+        t_symbol->initialized = true;
     }
-    
-    // 全局变量填写寄存器名称
-    if (t_symbol->is_global)
-        t_symbol->reg_value = "@" + t_symbol->name;
 
     /* IR part */
 
@@ -525,8 +513,9 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
         ir.var_type = "i32";
         ir.align_bytes = 4;
     }
-    else
+    else {
         perror("unknown var type");
+    }
 
     // is const
     ir.is_const = is_const;
@@ -541,7 +530,7 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     ir.is_reg = t_symbol->is_reg;
 
     // value
-    if (ir.is_reg) { /* 会有这种情况吗 */
+    if (ir.is_reg) {
         ir.init_reg = t_symbol->reg_value;
     } else {
         ir.init_value = t_symbol->const_value;
@@ -562,54 +551,31 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
     AST_Node* ident = ast->childs[0];
     Symbol* t_symbol = get_cur_scope()->lookup(ident->name);
     cout << "find " << ident->name << endl;
-    if (t_symbol) {
-        if (t_symbol->is_global) {
-            if (t_symbol->symbol_type == SymbolType::INT_VAR) {
-                LValIR ir;
-                // type
-                ir.is_global = true;
-                // left_reg_name
-                global_var_index++;
-                string reg_name = "%v" + to_string(global_var_index);
-                ir.left_reg_name = reg_name;
-                // right_reg_name
-                ir.right_reg_name = t_symbol->reg_value;
-                // var_type
-                ir.var_type = "i32";
-                // align bytes
-                ir.align_bytes = 4;
-                
-                ir.print(output);
-
-                last_reg = reg_name;
-                is_reg = true;
-            }
-        } else {
-            if (t_symbol->is_param) {
-                last_reg = t_symbol->reg_value;
-                is_reg = true;
-            } else if (t_symbol->is_reg) {
-                last_reg = t_symbol->reg_value;
-                is_reg = true;
-            } else {
-                LValIR ir;
-                ir.is_global = false;
-                string reg_name = "%" + t_symbol->name;
-                ir.left_reg_name = reg_name;
-                if (t_symbol->symbol_type == SymbolType::INT_VAR)
-                    ir.var_type = "i32";
-                else
-                    perror("unknown type");
-                ir.right_const_value = t_symbol->const_value;
-                
-                ir.print(output);
-                last_reg = reg_name;
-                is_reg = true;
-            }
-        }
-    } else {
+    if (!t_symbol) {
         perror("no symbol in table");
     }
+
+    LValIR ir;
+    // type
+    ir.is_global = true;
+    // left_reg_name
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.left_reg_name = reg_name;
+    // right_reg_name
+    ir.right_reg_name = t_symbol->reg_value;
+    // var type, align bytes
+    if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+        ir.var_type = "i32";
+        ir.align_bytes = 4;
+    } else {
+        perror("unknown type");
+    }
+
+    ir.print(output);
+
+    last_reg = reg_name;
+    is_reg = true;
 }
 
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
