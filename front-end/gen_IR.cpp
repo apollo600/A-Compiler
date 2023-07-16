@@ -7,12 +7,15 @@
 #include <map>
 using namespace std;
 
+extern void make_table(int n, ofstream& output);
+
 stack<Scope*> scopes;
 
 /* used for variant */
 static int global_var_index = 0;
 bool is_reg = false;
 string last_reg = "";
+string last_reg_type = "";
 static int last_const = 0;
 
 /* used for branch */
@@ -247,6 +250,7 @@ static void gen_Func_Call(AST_Node*& ast, ofstream& output)
 
     is_reg = true;
     last_reg = reg_name;
+    last_reg_type = ir.var_type;
 }
 
 static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_type)
@@ -393,6 +397,14 @@ static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
     generate_IR(ast->childs[1], output);
     assert(is_reg);
     string cond_reg = last_reg;
+    /* if (ast->childs[1]->childs[0]->name == "LOrExp") {
+        global_var_index++;
+        string t_var_name = "%v" + to_string(global_var_index);
+        make_table(scopes.size(), output);
+        output << t_var_name << " = " << "icmp ne " << last_reg_type << " "
+        << last_reg << ", " << "0" << endl;
+        cond_reg = t_var_name;
+    }  */
     // 然后生成跳转语句
     IfElseStmtIR ir;
     ir.cond_reg = cond_reg;
@@ -607,6 +619,12 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
 
     if (t_symbol->is_param) {
         last_reg = t_symbol->reg_value;
+        if (t_symbol->symbol_type == SymbolType::BOOL_VAR)
+            last_reg_type = "i1";
+        else if (t_symbol->symbol_type == SymbolType::INT_VAR)
+            last_reg_type = "i32";
+        else
+            perror("unknown type");
         is_reg = true;
         return;
     }
@@ -624,6 +642,9 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
     if (t_symbol->symbol_type == SymbolType::INT_VAR) {
         ir.var_type = "i32";
         ir.align_bytes = 4;
+    } else if (t_symbol->symbol_type == SymbolType::BOOL_VAR) {
+        ir.var_type = "i1";
+        ir.align_bytes = 1;
     } else {
         perror("unknown type");
     }
@@ -631,6 +652,7 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
     ir.print(output);
 
     last_reg = reg_name;
+    last_reg_type = ir.var_type;
     is_reg = true;
 }
 
@@ -662,7 +684,7 @@ static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
     else
         ir.operand_2 = to_string(last_const);
 
-    ir.var_type = "i32";
+    ir.var_type = last_reg_type;
 
     ir.print(output);
 
@@ -691,7 +713,7 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
         } else {
             ir.operand_2 = to_string(last_const);
         }
-        ir.var_type = "i32";
+        ir.var_type = last_reg_type;
 
         ir.print(output);
 
@@ -699,8 +721,9 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
         is_reg = true;
     } else if (op == "!") {
         BinaryExpIR ir;
+        /* icmp eq i32 %a, 0 */
         // inst
-        ir.inst_name = "xor";
+        ir.inst_name = "icmp eq";
         // return reg
         global_var_index++;
         string reg_name = "%v" + to_string(global_var_index);
@@ -714,12 +737,46 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
             ir.operand_1 = to_string(last_const);
         }
         // operand 2
-        ir.operand_2 = to_string(-1);
-        ir.var_type = "i32";
+        ir.operand_2 = to_string(0);
+        ir.var_type = last_reg_type;
 
         ir.print(output);
 
         last_reg = ir.return_reg;
+        last_reg_type = "i1";
+        is_reg = true;
+
+        /* xor i1 %v, true*/
+        // inst
+        ir.inst_name = "xor";
+        // return reg
+        global_var_index++;
+        reg_name = "%v" + to_string(global_var_index);
+        ir.return_reg = reg_name;
+
+        // operand 1
+        ir.operand_1 = last_reg;
+        // operand 2
+        ir.operand_2 = "true";
+        ir.var_type = last_reg_type;
+
+        ir.print(output);
+
+        last_reg = ir.return_reg;
+        last_reg_type = "i1";
+        is_reg = true;
+
+        /* zext */
+        // return reg
+        global_var_index++;
+        reg_name = "%v" + to_string(global_var_index);
+        // zext
+        make_table(scopes.size(), output);
+        output << reg_name << " = " << "zext " << last_reg_type << " "
+        << last_reg << " to i32" << endl;
+
+        last_reg = reg_name;
+        last_reg_type = "i32";
         is_reg = true;
     } else if (op == "+") {
         BinaryExpIR ir;
@@ -740,7 +797,7 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
         // operand 2
         ir.operand_2 = to_string(0);
         
-        ir.var_type = "i32";
+        ir.var_type = last_reg_type;
 
         ir.print(output);
 
@@ -782,7 +839,7 @@ static void gen_Mul_Exp(AST_Node*& ast, ofstream& output)
     else
         ir.operand_2 = to_string(last_const);
     // var type
-    ir.var_type = "i32";
+    ir.var_type = last_reg_type;
 
     ir.print(output);
     last_reg = ir.return_reg;
@@ -822,7 +879,7 @@ static void gen_Rel_Exp(AST_Node*& ast, ofstream& output)
     else
         ir.operand_2 = to_string(last_const);
     // var type
-    ir.var_type = "i32";
+    ir.var_type = last_reg_type;
 
     ir.print(output);
     last_reg = ir.return_reg;
@@ -858,7 +915,7 @@ static void gen_Eq_Exp(AST_Node*& ast, ofstream& output)
     else
         ir.operand_2 = to_string(last_const);
     // var type
-    ir.var_type = "i32";
+    ir.var_type = last_reg_type;
 
     ir.print(output);
     last_reg = ir.return_reg;

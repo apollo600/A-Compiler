@@ -7,7 +7,7 @@ extern stack<Scope*> scopes;
 extern bool is_reg;
 extern string last_reg;
 
-static void make_table(int n, ofstream& output)
+void make_table(int n, ofstream& output)
 {
     for (int i = 1; i < n; i++) {
         output << "\t";
@@ -86,7 +86,7 @@ void LValIR::print(ofstream& output)
 }
 
 void IfElseStmtIR::print(ofstream& output)
-{
+{   
     make_table(scopes.size(), output);
     // br i1 <cond_reg>, label %if.true, label %if.false
     output << "br i1 " << cond_reg << ", " << "label %" << label_name + ".true"
