@@ -74,8 +74,13 @@ void FuncCallIR::print(ofstream& output)
 void AssignIR::print(ofstream& output)
 {
     make_table(scopes.size(), output);
-    output << "store " << var_type << " " << right_value << ", "
-    << var_type << "* " << left_reg_name << endl;
+    if (is_param) {
+        output << left_reg_name << " = " << "add i32 " << right_value << ", 0" << endl;
+    } else {
+        output << "store " << var_type << " " << right_value << ", "
+        << var_type << "* " << left_reg_name << endl;
+    }
+    
 }
 
 void LValIR::print(ofstream& output)

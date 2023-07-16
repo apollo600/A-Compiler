@@ -365,6 +365,8 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
     generate_IR(ast->childs[1], output);
         
     AssignIR ir;
+    // is_param
+    ir.is_param = t_symbol->is_param;
     // lval
     ir.left_reg_name = t_symbol->reg_value;
     // right value

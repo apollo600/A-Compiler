@@ -86,6 +86,7 @@ public:
     string var_type;
     string left_reg_name;
     string right_value;
+    bool is_param;
 
     void print(ofstream& output);
 };
