@@ -90,7 +90,7 @@ void IfElseStmtIR::print(ofstream& output)
     make_table(scopes.size(), output);
     // br i1 <cond_reg>, label %if.true, label %if.false
     output << "br i1 " << cond_reg << ", " << "label %" << label_name + ".true"
-    << ", " << "label %" << label_name + ".false" << "\n" << endl;
+    << ", " << "label %" << label_name + ".false" << endl;
 
     // true BB
     make_table(scopes.size(), output);
@@ -104,7 +104,6 @@ void IfElseStmtIR::print(ofstream& output)
     // jump to end
     make_table(scopes.size() + 1, output);
     output << "br label %" << label_name + ".end" << endl;
-    output << endl;
     // false BB
     make_table(scopes.size(), output);
     output << label_name + ".false:" << endl;
@@ -117,7 +116,6 @@ void IfElseStmtIR::print(ofstream& output)
     // jump to end
     make_table(scopes.size() + 1, output);
     output << "br label %" << label_name + ".end" << endl;
-    output << endl;
     // end BB
     make_table(scopes.size(), output);
     output << label_name + ".end:" << endl;

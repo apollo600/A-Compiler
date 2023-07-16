@@ -89,8 +89,18 @@
 
 33-36：while语句不带break
 
-37-39：while语句带break
+37-41：while语句带break，continue
+
+43-45：运算符优先级
 
 ## 不成立样例情况
 
+4-7：数组
+
+11：const数组
+
 29，33：`putint`
+
+42：数组
+
+46，47，48：`putint`

@@ -406,7 +406,6 @@ static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
     else
         ir.false_BB = nullptr;
     ir.print(output);
-    global_if_index--;
 }
 
 static void gen_While_Stmt(AST_Node*& ast, ofstream& output)
@@ -423,7 +422,6 @@ static void gen_While_Stmt(AST_Node*& ast, ofstream& output)
     ir.while_BB = ast->childs[2];
     
     ir.print(output);
-    global_while_index--;
 }
 
 static void gen_Break_Stmt(AST_Node*& ast, ofstream& output)
@@ -607,6 +605,12 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
         perror("no symbol in table");
     }
 
+    if (t_symbol->is_param) {
+        last_reg = t_symbol->reg_value;
+        is_reg = true;
+        return;
+    }
+
     LValIR ir;
     // type
     ir.is_global = true;
@@ -687,6 +691,55 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
         } else {
             ir.operand_2 = to_string(last_const);
         }
+        ir.var_type = "i32";
+
+        ir.print(output);
+
+        last_reg = ir.return_reg;
+        is_reg = true;
+    } else if (op == "!") {
+        BinaryExpIR ir;
+        // inst
+        ir.inst_name = "xor";
+        // return reg
+        global_var_index++;
+        string reg_name = "%v" + to_string(global_var_index);
+        ir.return_reg = reg_name;
+        // operand 1
+        assert(ast->childs.size() == 1);
+        generate_IR(ast->childs[0], output);
+        if (is_reg) {
+            ir.operand_1 = last_reg;
+        } else {
+            ir.operand_1 = to_string(last_const);
+        }
+        // operand 2
+        ir.operand_2 = to_string(-1);
+        ir.var_type = "i32";
+
+        ir.print(output);
+
+        last_reg = ir.return_reg;
+        is_reg = true;
+    } else if (op == "+") {
+        BinaryExpIR ir;
+        // inst
+        ir.inst_name = "add";
+        // return reg
+        global_var_index++;
+        string reg_name = "%v" + to_string(global_var_index);
+        ir.return_reg = reg_name;
+        // operand 1
+        assert(ast->childs.size() == 1);
+        generate_IR(ast->childs[0], output);
+        if (is_reg) {
+            ir.operand_1 = last_reg;
+        } else {
+            ir.operand_1 = to_string(last_const);
+        }
+        // operand 2
+        ir.operand_2 = to_string(0);
+        
         ir.var_type = "i32";
 
         ir.print(output);
