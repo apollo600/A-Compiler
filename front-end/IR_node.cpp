@@ -79,7 +79,16 @@ void LValIR::print(ofstream& output)
     make_table(output);
     if (is_global)
         output << left_reg_name << " = " << "load " << var_type << ", "
-    << var_type << "* " << right_reg_name << ", " << "align " << align_bytes << endl;
+        << var_type << "* " << right_reg_name << ", " << "align " 
+        << align_bytes << endl;
     else
-        output << left_reg_name << " = " << "add " << var_type << " " << right_const_value << ", " << "0" << endl;
+        output << left_reg_name << " = " << "add " << var_type << " " 
+        << right_const_value << ", " << "0" << endl;
+}
+
+void MulExpIR::print(ofstream& output)
+{
+    make_table(output);
+    output << ret_reg << " = " << inst_name << " " << var_type << " "
+    << operand_1 << ", " << operand_2 << endl;
 }

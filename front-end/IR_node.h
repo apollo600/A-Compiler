@@ -105,4 +105,16 @@ public:
     void print(ofstream& output);
 };
 
+class MulExpIR: public IR
+{
+public:
+    string inst_name;
+    string var_type;
+    string operand_1;
+    string operand_2;
+    string ret_reg;
+
+    void print(ofstream& output);
+};
+
 #endif

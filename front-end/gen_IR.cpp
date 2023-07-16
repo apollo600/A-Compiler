@@ -18,21 +18,23 @@ static AST_Node* Backtrack(AST_Node* ast, string node_name);
 static AST_Node* Track(AST_Node* ast, string node_name);
 static inline Scope* get_cur_scope();
 
-static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
-static void gen_Func_Def(AST_Node*& ast, ofstream& output);
-static void gen_Block(AST_Node*& ast, ofstream& output);
-static void gen_Stmt(AST_Node*& ast, ofstream& output);
-static void gen_Number(AST_Node*& ast, ofstream& output);
-static void gen_Ident(AST_Node*& ast, ofstream& output);
-static void gen_String(AST_Node*& ast, ofstream& output);
-static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
-static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
-static void gen_LVal(AST_Node*& ast, ofstream& output);
-static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
-static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
+/* gen_IR handler */
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
+static void gen_Block(AST_Node*& ast, ofstream& output);
+static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
 static void gen_Func_Call(AST_Node*& ast, ofstream& output);
+static void gen_Func_Def(AST_Node*& ast, ofstream& output);
+static void gen_Ident(AST_Node*& ast, ofstream& output);
+static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
+static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
+static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
+static void gen_LVal(AST_Node*& ast, ofstream& output);
+static void gen_Mul_Exp(AST_Node*& ast, ofstream& output);
+static void gen_Number(AST_Node*& ast, ofstream& output);
+static void gen_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_String(AST_Node*& ast, ofstream& output);
 static void gen_Unary_Exp(AST_Node*& ast, ofstream& output);
+static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
 
 static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const);
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
@@ -50,6 +52,7 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::JUST_PASS, gen_Just_Pass},
     {NodeType::JUST_CONCAT, gen_Just_Concat},
     {NodeType::LVAL, gen_LVal},
+    {NodeType::MUL_EXP, gen_Mul_Exp},
     {NodeType::NUMBER, gen_Number},
     {NodeType::STMT, gen_Stmt},
     {NodeType::STRING, gen_String},
@@ -616,4 +619,42 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
     } else {
         perror("unknown op");
     }
+}
+
+static void gen_Mul_Exp(AST_Node*& ast, ofstream& output)
+{
+    MulExpIR ir;
+    // inst
+    if (ast->name == "*") {
+        ir.inst_name = "mul";
+    } else if (ast->name == "/") {
+        ir.inst_name = "sdiv";
+    } else if (ast->name == "%") {
+        ir.inst_name = "srem";
+    } else {
+        perror("unimplemented op type");
+    }
+    // return reg
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.ret_reg = reg_name;
+    // operand 1, 2
+    AST_Node* operand_1 = ast->childs[0];
+    AST_Node* operand_2 = ast->childs[1];
+    generate_IR(operand_1, output);
+    if (is_reg)
+        ir.operand_1 = last_reg;
+    else
+        ir.operand_1 = to_string(last_const);
+    generate_IR(operand_2, output);
+    if (is_reg)
+        ir.operand_2 = last_reg;
+    else
+        ir.operand_2 = to_string(last_const);
+    // var type
+    ir.var_type = "i32";
+
+    ir.print(output);
+    last_reg = ir.ret_reg;
+    is_reg = true;
 }

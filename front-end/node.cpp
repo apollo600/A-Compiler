@@ -17,6 +17,7 @@ std::map<NodeType, std::string> node_type2name{
     {NodeType::JUST_CONCAT, "JUST_CONCAT"},
     {NodeType::JUST_PASS, "JUST_PASS"},
     {NodeType::JUST_CONTINUE, "JUST_CONTINUE"},
+    {NodeType::MUL_EXP, "MUL_EXP"},
     {NodeType::NUMBER, "NUMBER"},
     {NodeType::STMT, "STMT"},
     {NodeType::STRING, "STRING"},

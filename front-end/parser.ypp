@@ -482,6 +482,7 @@ MulExp:         UnaryExp {
                     $$ = new AST_Node($1, $3, nullptr); 
                     $$->set_name(*$2);
                     delete $2;
+                    $$->set_type(NodeType::MUL_EXP);
                 }
                 ;
 

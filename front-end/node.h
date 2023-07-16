@@ -17,7 +17,7 @@ enum class NodeType {
     FUNC_DEF, FUNC_DECL, FUNC_TYPE, FUNC_NAME, FUNC_PARAMS, FUNC_CALL,
     VAR_DEF, VAR_DECL, 
     STMT, BLOCK, LVAL,
-    ADD_EXP, UNARY_EXP, 
+    ADD_EXP, UNARY_EXP, MUL_EXP,
 };
 
 class AST_Node {
