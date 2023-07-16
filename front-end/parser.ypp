@@ -79,12 +79,13 @@ Decl:           ConstDecl {
                 }
                 ;
 
-ConstDecl:      T_CONST VarDeclWithIdent ConstDefList ';' { 
+ConstDecl:      T_CONST BType ConstDefList ';' { 
                     AST_Node* child1 = new AST_Node();
                     child1->set_name("const");
                     child1->set_type(NodeType::STRING);
-                    $3->childs[0]->childs.insert($3->childs[0]->childs.begin(), $2->childs[1]);
-                    $$ = new AST_Node(child1, $2->childs[0], $3, nullptr);
+                    $$ = new AST_Node(child1, $2, $3, nullptr);
+                    /* $3->childs[0]->childs.insert($3->childs[0]->childs.begin(), $2->childs[1]);
+                    $$ = new AST_Node(child1, $2->childs[0], $3, nullptr); */
                     $$->set_name("ConstDecl");
                     $$->set_type(NodeType::VAR_DECL);
                 }
@@ -98,17 +99,19 @@ ConstDefList:   ConstDef {
                 | ConstDefList ',' ConstDef { $$->add_child($3); }
                 ;
 
-ConstDef:       '=' ConstInitVal {
-                    AST_Node* child1 = new AST_Node();
-                    child1->set_name("initial =");
-                    $$ = new AST_Node(child1, $2, nullptr);
+ConstDef:       Ident '=' ConstInitVal {
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("initial =");
+                    child2->set_type(NodeType::STRING);
+                    $$ = new AST_Node($1, child2, $3, nullptr);
                     $$->set_name("ConstDef");
                     $$->set_type(NodeType::VAR_DECL);
                 }
-                | ConstIndex '=' ConstInitVal {
-                    AST_Node* child2 = new AST_Node();
-                    child2->set_name("initial =");
-                    $$ = new AST_Node($1, child2, $3, nullptr);
+                | Ident ConstIndex '=' ConstInitVal {
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name("initial =");
+                    child3->set_type(NodeType::STRING);
+                    $$ = new AST_Node($1, $2, child3, $4, nullptr);
                     $$->set_name("ConstDef");
                 }
                 ;
@@ -117,7 +120,11 @@ ConstIndex:     '[' ConstExp ']' { $$ = new AST_Node($2, nullptr); $$->set_name(
                 | ConstIndex '[' ConstExp ']' { $$->add_child($3); $$->set_name("ConstIndex"); }
                 ;
 
-ConstInitVal:   ConstExp { $$ = new AST_Node($1, nullptr); $$->set_name("ConstInitVal"); }
+ConstInitVal:   ConstExp { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("ConstInitVal"); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
                 | '{' '}' {
                     AST_Node* child1 = new AST_Node();
                     child1->set_name("{");
@@ -126,7 +133,10 @@ ConstInitVal:   ConstExp { $$ = new AST_Node($1, nullptr); $$->set_name("ConstIn
                     $$ = new AST_Node(child1, child2, nullptr);
                     $$->set_name("ConstInitVal");
                 }
-                | '{' ConstInitValList '}' { $$ = new AST_Node($2, nullptr); $$->set_name("ConstInitVal"); }
+                | '{' ConstInitValList '}' { 
+                    $$ = new AST_Node($2, nullptr); 
+                    $$->set_name("ConstInitVal"); 
+                }
                 ;
 
 ConstInitValList:       ConstInitVal { $$ = new AST_Node($1, nullptr); $$->set_name("ConstInitValList"); }
@@ -160,8 +170,11 @@ VarDef:         Ident {
                     $$->set_type(NodeType::JUST_PASS);
                 }
                 | Ident '=' InitVal {
-                    $$ = new AST_Node($1, $3, nullptr);
-                    $$->set_name("initial ="); 
+                    AST_Node* child2 = new AST_Node();
+                    child2->set_name("initial =");
+                    child2->set_type(NodeType::STRING);
+                    $$ = new AST_Node($1, child2, $3, nullptr);
+                    $$->set_name("VarDef"); 
                     $$->set_type(NodeType::JUST_PASS);
                 }
                 | Ident ConstExpList {
@@ -170,7 +183,10 @@ VarDef:         Ident {
                     $$->set_type(NodeType::JUST_PASS);
                 }
                 | Ident ConstExpList '=' InitVal {
-                    $$ = new AST_Node($1, $2, $4, nullptr);
+                    AST_Node* child3 = new AST_Node();
+                    child3->set_name("initial =");
+                    child3->set_type(NodeType::STRING);
+                    $$ = new AST_Node($1, $2, child3, $4, nullptr);
                     $$->set_name("initial =");
                     $$->set_name("VarDef");
                     $$->set_type(NodeType::JUST_PASS);
@@ -386,7 +402,11 @@ Exp:            AddExp {
                 }
                 ;
 
-ConstExp:       AddExp { $$ = new AST_Node($1, nullptr); $$->set_name("ConstExp"); }
+ConstExp:       AddExp { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("ConstExp"); 
+                    $$->set_type(NodeType::JUST_PASS);
+                }
                 ;
 
 Cond:           LOrExp { $$ = new AST_Node($1, nullptr); $$->set_name("Cond"); }

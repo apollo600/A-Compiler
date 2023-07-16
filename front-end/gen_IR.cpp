@@ -301,9 +301,18 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 {   
     SymbolType type;
     string ident;
-    AST_Node* var_type = ast->childs[0];
+    bool is_const;
+    AST_Node* var_type;
     AST_Node* var_def_list = ast->childs[1];
-    assert(var_def_list->name == "VarDefList");
+    if (ast->childs[0]->name == "const") {
+        is_const = true;
+        var_type = ast->childs[1];
+        var_def_list = ast->childs[2];
+    } else {
+        is_const = false;
+        var_type = ast->childs[0];
+        var_def_list = ast->childs[1];
+    }
 
     // proces first ident
     // assign type and first ident
@@ -315,10 +324,7 @@ static void gen_Var_Decl(AST_Node*& ast, ofstream& output)
 
     // 遍历VarDefList
     for (AST_Node* var_def : var_def_list->childs) {
-        if (var_def->name == "initial =")
-            gen_Var_Def(var_def, output, type, false);
-        else
-            gen_Var_Def(var_def, output, type, false);
+        gen_Var_Def(var_def, output, type, is_const);
     }
 }
 
@@ -351,11 +357,11 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     if (ast->childs.size() == 1) { /* decl */
         return;
     } else {
-        assert(ast->name == "initial =");
+        assert(ast->childs.size() == 3);
     }
 
     // gen_const will fill the `is_reg` property
-    AST_Node* init_val = ast->childs[1];
+    AST_Node* init_val = ast->childs[2];
     generate_IR(init_val, output);
 
     // value
