@@ -26,7 +26,7 @@ static inline Scope* get_cur_scope();
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Block(AST_Node*& ast, ofstream& output);
 static void gen_Comp_Root(AST_Node*& ast, ofstream& output);
-static void gen_Cond(AST_Node*& ast, ofstream& output);
+static void gen_Eq_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Func_Call(AST_Node*& ast, ofstream& output);
 static void gen_Func_Def(AST_Node*& ast, ofstream& output);
 static void gen_Ident(AST_Node*& ast, ofstream& output);
@@ -53,6 +53,7 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::ADD_EXP, gen_Add_Exp},
     {NodeType::BLOCK, gen_Block},
     {NodeType::COMP_ROOT, gen_Comp_Root},
+    {NodeType::EQ_EXP, gen_Eq_Exp},
     {NodeType::FUNC_DEF, gen_Func_Def},
     {NodeType::FUNC_CALL, gen_Func_Call},
     {NodeType::IDENT, gen_Ident},
@@ -68,6 +69,8 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::VAR_DECL, gen_Var_Decl},
 };
 
+extern map<NodeType, string> node_type2name;
+
 void generate_IR(AST_Node*& ast, ofstream& output)
 {
     if (ast == nullptr) {
@@ -78,7 +81,8 @@ void generate_IR(AST_Node*& ast, ofstream& output)
         IR_handler_Table[type](ast, output);
     }
     else {
-        perror("Unimplemented node type");
+        string err_msg = "Unimplemented node type `" + node_type2name[type] + "` ";
+        perror(err_msg.c_str());
     }
 }
 
@@ -225,12 +229,14 @@ static void gen_Func_Call(AST_Node*& ast, ofstream& output)
     }
 
     // param list
-    AST_Node* param_list_node = ast->childs[1];
-    for (int i = 0; i < param_list_node->childs.size(); i++) {
-        string var_type = func_symbol->param_type_list[i];
-        ir.param_list.push_back(
-            gen_Func_Call_Param(param_list_node->childs[i], output, var_type)
-        );
+    if (ast->childs.size() == 2) {
+        AST_Node* param_list_node = ast->childs[1];
+        for (int i = 0; i < param_list_node->childs.size(); i++) {
+            string var_type = func_symbol->param_type_list[i];
+            ir.param_list.push_back(
+                gen_Func_Call_Param(param_list_node->childs[i], output, var_type)
+            );
+        }
     }
 
     ir.print(output);
@@ -724,6 +730,42 @@ static void gen_Rel_Exp(AST_Node*& ast, ofstream& output)
         ir.inst_name = "icmp sge";
     } else if (ast->name == "<=") {
         ir.inst_name = "icmp sle";
+    } else {
+        perror("unimplemented op type");
+    }
+    // return reg
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.return_reg = reg_name;
+    // operand 1, 2
+    AST_Node* operand_1 = ast->childs[0];
+    AST_Node* operand_2 = ast->childs[1];
+    generate_IR(operand_1, output);
+    if (is_reg)
+        ir.operand_1 = last_reg;
+    else
+        ir.operand_1 = to_string(last_const);
+    generate_IR(operand_2, output);
+    if (is_reg)
+        ir.operand_2 = last_reg;
+    else
+        ir.operand_2 = to_string(last_const);
+    // var type
+    ir.var_type = "i32";
+
+    ir.print(output);
+    last_reg = ir.return_reg;
+    is_reg = true;
+}
+
+static void gen_Eq_Exp(AST_Node*& ast, ofstream& output)
+{
+    BinaryExpIR ir;
+    // inst
+    if (ast->name == "==") {
+        ir.inst_name = "icmp eq";
+    } else if (ast->name == "!=") {
+        ir.inst_name = "icmp ne";
     } else {
         perror("unimplemented op type");
     }

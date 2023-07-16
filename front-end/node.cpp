@@ -3,10 +3,11 @@
 #include <cstdarg>
 using namespace std;
 
-std::map<NodeType, std::string> node_type2name{
+map<NodeType, string> node_type2name{
     {NodeType::ADD_EXP, "ADD_EXP"},
     {NodeType::BLOCK, "BLOCK"},
     {NodeType::error, "error"},
+    {NodeType::EQ_EXP, "EQ_EXP"},
     {NodeType::FUNC_CALL, "FUNC_CALL"},
     {NodeType::FUNC_DECL, "FUNC_DECL"},
     {NodeType::FUNC_DEF, "FUNC_DEF"},

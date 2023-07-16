@@ -362,6 +362,7 @@ Stmt:           LVal '=' Exp ';' {
                 | T_IF '(' Cond ')' Stmt %prec T_ELSE T_ELSE Stmt {
                     AST_Node* child1 = new AST_Node();
                     child1->set_name("if");
+                    child1->set_type(NodeType::STRING);
                     $$ = new AST_Node(child1, $3, $5, $7, nullptr);
                     $$->set_name("Stmt");
                     $$->set_type(NodeType::STMT);
@@ -450,6 +451,7 @@ EqExp:          RelExp {
                     $$ = new AST_Node($1, $3, nullptr);
                     $$->set_name(*$2);
                     delete $2;
+                    $$->set_type(NodeType::EQ_EXP);
                 }
                 ;
 
@@ -517,12 +519,9 @@ UnaryExp:       PrimaryExp {
                     $$->set_type(NodeType::JUST_PASS);
                 }
                 | Ident '(' ')' { 
-                    AST_Node* child2 = new AST_Node();
-                    child2->set_name("(");
-                    AST_Node* child3 = new AST_Node();
-                    child3->set_name(")");
-                    $$ = new AST_Node($1, child2, child3, nullptr);
+                    $$ = new AST_Node($1, nullptr);
                     $$->set_name("UnaryExp");
+                    $$->set_type(NodeType::FUNC_CALL);
                 }
                 | Ident '(' FuncRParams ')' { 
                     $$ = new AST_Node($1, $3, nullptr);
@@ -553,11 +552,7 @@ UnaryOp:        '+' {
                 ;
 
 PrimaryExp:     '(' Exp ')' { 
-                    AST_Node* child1 = new AST_Node();
-                    child1->set_name("(");
-                    AST_Node* child3 = new AST_Node();
-                    child3->set_name(")");
-                    $$ = new AST_Node(child1, $2, child3, nullptr);
+                    $$ = new AST_Node($2, nullptr);
                     $$->set_name("PrimaryExp");
                     $$->set_type(NodeType::JUST_PASS);
                 }
