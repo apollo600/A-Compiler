@@ -3,8 +3,5 @@ target triple = "x86_64-pc-windows-msys"
 
 ; func def
 define i32 @main () {
-	%b0 = add i32 2, 0
-	%_c = add i32 3, 0
-	%v1 = add i32 %b0, %_c
-	ret i32 %v1
+	ret i32 0
 }

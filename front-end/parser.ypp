@@ -82,13 +82,19 @@ Decl:           ConstDecl {
 ConstDecl:      T_CONST VarDeclWithIdent ConstDefList ';' { 
                     AST_Node* child1 = new AST_Node();
                     child1->set_name("const");
+                    child1->set_type(NodeType::STRING);
                     $3->childs[0]->childs.insert($3->childs[0]->childs.begin(), $2->childs[1]);
                     $$ = new AST_Node(child1, $2->childs[0], $3, nullptr);
                     $$->set_name("ConstDecl");
+                    $$->set_type(NodeType::VAR_DECL);
                 }
                 ;
 
-ConstDefList:   ConstDef { $$ = new AST_Node($1, nullptr); $$->set_name("ConstDefList"); }
+ConstDefList:   ConstDef { 
+                    $$ = new AST_Node($1, nullptr); 
+                    $$->set_name("ConstDefList"); 
+                    $$->set_type(NodeType::JUST_CONCAT);
+                }
                 | ConstDefList ',' ConstDef { $$->add_child($3); }
                 ;
 
@@ -97,6 +103,7 @@ ConstDef:       '=' ConstInitVal {
                     child1->set_name("initial =");
                     $$ = new AST_Node(child1, $2, nullptr);
                     $$->set_name("ConstDef");
+                    $$->set_type(NodeType::)
                 }
                 | ConstIndex '=' ConstInitVal {
                     AST_Node* child2 = new AST_Node();
