@@ -16,7 +16,8 @@ string last_reg = "";
 static int last_const = 0;
 
 /* used for branch */
-static int global_branch_index = 0;
+int global_if_index = 0;
+int global_while_index = 0;
 
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
 static AST_Node* Track(AST_Node* ast, string node_name);
@@ -48,6 +49,7 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_While_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_Break_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_Continue_Stmt(AST_Node*& ast, ofstream& output);
 static string gen_Func_Def_Param(AST_Node*& ast);
 static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_type);
 
@@ -276,7 +278,7 @@ static void gen_Block(AST_Node*& ast, ofstream& output)
 static void gen_Stmt(AST_Node*& ast, ofstream& output)
 {
     /* return-stmt */
-    if (ast->childs[0]->name == "return") {
+    if (ast->childs.size() >= 1 && ast->childs[0]->name == "return") {
         gen_Return_Stmt(ast, output);   
     } 
     /* assign-stmt */
@@ -284,20 +286,24 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
         gen_Assign_Stmt(ast, output);
     }
     /* if-else-stmt */
-    else if (ast->childs[0]->name == "if") {
+    else if (ast->childs.size() >= 1 && ast->childs[0]->name == "if") {
         gen_If_Else_Stmt(ast, output);
     }
     /* block */
-    else if (ast->childs[0]->name == "Block") {
+    else if (ast->childs.size() >= 1 && ast->childs[0]->name == "Block") {
         generate_IR(ast->childs[0], output);
     }
     /* while */
-    else if (ast->childs[0]->name == "while") {
+    else if (ast->childs.size() >= 1 && ast->childs[0]->name == "while") {
         gen_While_Stmt(ast, output);
     }
     /* break */
     else if (ast->name == "break") {
         gen_Break_Stmt(ast, output);
+    }
+    /* continue */
+    else if (ast->name == "continue") {
+        gen_Continue_Stmt(ast, output);
     }
     else {
         perror("unimplemented statement");
@@ -380,8 +386,8 @@ static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
     // 一定要嵌套实现，if成立，进入对应的子树；if不成立，进入对应的子树/直接返回
     // else if可以看成是else{ if ... }
     // 这里需要设置标签点用来跳转, if-i.true, if-i.false, if-i.end
-    global_branch_index++;
-    string label_name = "if-" + to_string(global_branch_index);
+    global_if_index++;
+    string label_name = "if-" + to_string(global_if_index);
     // 跳转的结果即Cond存储到最近一次的寄存器中
     assert(ast->childs.size() >= 2);
     generate_IR(ast->childs[1], output);
@@ -400,6 +406,7 @@ static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
     else
         ir.false_BB = nullptr;
     ir.print(output);
+    global_if_index--;
 }
 
 static void gen_While_Stmt(AST_Node*& ast, ofstream& output)
@@ -409,11 +416,30 @@ static void gen_While_Stmt(AST_Node*& ast, ofstream& output)
     // cond reg
     ir.cond = ast->childs[1];
     // label name
-    global_branch_index++;
-    string label_name = "while-" + to_string(global_branch_index);
+    global_while_index++;
+    string label_name = "while-" + to_string(global_while_index);
     ir.label_name = label_name;
     // while block
     ir.while_BB = ast->childs[2];
+    
+    ir.print(output);
+    global_while_index--;
+}
+
+static void gen_Break_Stmt(AST_Node*& ast, ofstream& output)
+{
+    BreakStmtIR ir;
+    string label_name = "while-" + to_string(global_while_index);
+    ir.label_name = label_name;
+    
+    ir.print(output);
+}
+
+static void gen_Continue_Stmt(AST_Node*& ast, ofstream& output)
+{
+    ContinueStmtIR ir;
+    string label_name = "while-" + to_string(global_while_index);
+    ir.label_name = label_name;
     
     ir.print(output);
 }

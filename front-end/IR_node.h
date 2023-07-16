@@ -129,4 +129,20 @@ public:
     void print(ofstream& output);
 };
 
+class BreakStmtIR: public IR
+{
+public:
+    string label_name;
+
+    void print(ofstream& output);
+};
+
+class ContinueStmtIR: public IR
+{
+public:
+    string label_name;
+
+    void print(ofstream& output);
+};
+
 #endif

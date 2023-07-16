@@ -155,3 +155,15 @@ void WhileStmtIR::print(ofstream& output)
     make_table(scopes.size(), output);
     output << label_name + ".end:" << endl;
 }
+
+void BreakStmtIR::print(ofstream& output)
+{
+    make_table(scopes.size(), output);
+    output << "br label " << "%" << label_name + ".end" << endl;
+}
+
+void ContinueStmtIR::print(ofstream& output)
+{
+    make_table(scopes.size(), output);
+    output << "br label " << "%" << label_name + ".start" << endl;
+}
