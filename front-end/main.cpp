@@ -42,11 +42,12 @@ int main(int argc, char *argv[]) {
         if (Output_AST)
             traverse_AST(ast);
 
-        ofstream llvm_ir;
-        assert(IR_name.size() > 0);
-        llvm_ir.open(IR_name, ios::out);
-        generate_IR(ast, llvm_ir);
-        llvm_ir.close();
+        if (!IR_name.empty()) {
+            ofstream llvm_ir;
+            llvm_ir.open(IR_name, ios::out);
+            generate_IR(ast, llvm_ir);
+            llvm_ir.close();
+        }
     }
 
     fclose(yyin);

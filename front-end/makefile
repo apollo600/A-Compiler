@@ -17,6 +17,9 @@ all: ${BUILD_DIR} ${TARGET}
 run: all
 	${TARGET} test_parser.sy
 
+ir: all
+	${TARGET} test_parser.sy -o main.ll
+
 clean:
 	rm -f parser.out parser.tab.hpp parser.tab.cpp scanner.lex.cpp main.ll main.out
 	rm -rf ${BUILD_DIR}
