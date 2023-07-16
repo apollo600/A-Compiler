@@ -165,10 +165,10 @@ static void gen_Func_Def(AST_Node*& ast, ofstream& output)
         );
     }
 
-    ir.print(output);
+    // func block
+    ir.func_BB = ast->childs[3];
 
-    // continue to generate block
-    generate_IR(ast->childs[3], output);
+    ir.print(output);
 
     scopes.pop();
 }
@@ -256,9 +256,7 @@ static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_t
 
 static void gen_Block(AST_Node*& ast, ofstream& output)
 {
-    output << "{" << endl;
     generate_IR(ast->childs[0], output);
-    output << "}" << endl;
 }
 
 static void gen_Stmt(AST_Node*& ast, ofstream& output)

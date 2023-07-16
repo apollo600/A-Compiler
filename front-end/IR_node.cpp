@@ -4,24 +4,23 @@
 
 extern stack<Scope*> scopes;
 
-static void make_table(ofstream& output)
+static void make_table(int n, ofstream& output)
 {
-    int level = scopes.size();
-    for (int i = 1; i < level; i++) {
+    for (int i = 1; i < n; i++) {
         output << "\t";
     }
 }
 
 void BinaryExpIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     output << return_reg << " = " << inst_name << " " << var_type
     << " " << operand_1 << ", " << operand_2 << endl;
 }
 
 void ReturnStmtIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     if (is_const)
         output << "ret " << var_type << " " << return_const << endl;
     else
@@ -30,7 +29,7 @@ void ReturnStmtIR::print(ofstream& output)
 
 void FuncDefIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     output << comment << endl;
     output << "define " << var_type << " @" << func_name << " (";
     for (int i = 0; i < param_list.size(); i++) {
@@ -40,6 +39,9 @@ void FuncDefIR::print(ofstream& output)
         }
     }
     output << ") ";
+    output << "{" << endl;
+    generate_IR(func_BB, output);
+    output << "}" << endl;
 }
 
 void VarDefIR::print(ofstream& output)
@@ -48,14 +50,14 @@ void VarDefIR::print(ofstream& output)
         return;
     }
 
-    make_table(output);
+    make_table(scopes.size(), output);
     output << "@" << var_name << " = " << "global " << var_type << " "
     << init_value << " align " << align_bytes << endl;
 }
 
 void FuncCallIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     output << ret_reg << " = " << "call " << var_type 
     << " @" << func_name << "(";
     for (int i = 0; i < param_list.size(); i++) {
@@ -69,14 +71,14 @@ void FuncCallIR::print(ofstream& output)
 
 void AssignIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     output << "store " << var_type << " " << right_value << ", "
     << var_type << "* " << left_reg_name << endl;
 }
 
 void LValIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     if (is_global)
         output << left_reg_name << " = " << "load " << var_type << ", "
         << var_type << "* " << right_reg_name << ", " << "align " 
@@ -88,17 +90,19 @@ void LValIR::print(ofstream& output)
 
 void IfElseStmtIR::print(ofstream& output)
 {
-    make_table(output);
+    make_table(scopes.size(), output);
     // br i1 <cond_reg>, label %if.true, label %if.false
     output << "br i1 " << cond_reg << ", " << "label %" << label_name + ".true"
-    << ", " << "label %" << label_name + ".false" << endl;
+    << ", " << "label %" << label_name + ".false" << "\n" << endl;
 
     // true BB
+    make_table(scopes.size() - 1, output);
     output << label_name + ".true:" << endl;
     generate_IR(true_BB, output);
+    output << endl;
     // false BB
+    make_table(scopes.size() - 1, output);
     output << label_name + ".false:" << endl;
     generate_IR(false_BB, output);
-    // end
-    output << label_name + ".end:" << endl;
+    output << endl;
 }

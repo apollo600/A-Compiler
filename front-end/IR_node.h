@@ -42,6 +42,7 @@ public:
     string var_type;
     string func_name;
     vector<string> param_list;
+    AST_Node* func_BB;
 
     void print(ofstream& output);
 };
