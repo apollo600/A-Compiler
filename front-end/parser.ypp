@@ -370,6 +370,7 @@ Stmt:           LVal '=' Exp ';' {
                 | T_WHILE '(' Cond ')' Stmt {
                     AST_Node* child = new AST_Node();
                     child->set_name("while");
+                    child->set_type(NodeType::STRING);
                     $$ = new AST_Node(child, $3, $5, nullptr);
                     $$->set_name("Stmt");
                     $$->set_type(NodeType::STMT);

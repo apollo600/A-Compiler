@@ -11,8 +11,8 @@ stack<Scope*> scopes;
 
 /* used for variant */
 static int global_var_index = 0;
-static bool is_reg = false;
-static string last_reg = "";
+bool is_reg = false;
+string last_reg = "";
 static int last_const = 0;
 
 /* used for branch */
@@ -46,6 +46,8 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_While_Stmt(AST_Node*& ast, ofstream& output);
+static void gen_Break_Stmt(AST_Node*& ast, ofstream& output);
 static string gen_Func_Def_Param(AST_Node*& ast);
 static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_type);
 
@@ -289,6 +291,14 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
     else if (ast->childs[0]->name == "Block") {
         generate_IR(ast->childs[0], output);
     }
+    /* while */
+    else if (ast->childs[0]->name == "while") {
+        gen_While_Stmt(ast, output);
+    }
+    /* break */
+    else if (ast->name == "break") {
+        gen_Break_Stmt(ast, output);
+    }
     else {
         perror("unimplemented statement");
     }
@@ -389,6 +399,22 @@ static void gen_If_Else_Stmt(AST_Node*& ast, ofstream& output)
         ir.false_BB = ast->childs[3];
     else
         ir.false_BB = nullptr;
+    ir.print(output);
+}
+
+static void gen_While_Stmt(AST_Node*& ast, ofstream& output)
+{
+    WhileStmtIR ir;
+    assert(ast->childs.size() == 3);
+    // cond reg
+    ir.cond = ast->childs[1];
+    // label name
+    global_branch_index++;
+    string label_name = "while-" + to_string(global_branch_index);
+    ir.label_name = label_name;
+    // while block
+    ir.while_BB = ast->childs[2];
+    
     ir.print(output);
 }
 

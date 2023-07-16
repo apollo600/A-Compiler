@@ -1,8 +1,11 @@
 #include "IR_node.h"
 #include "symtable.h"
 #include <stack>
+#include <cassert>
 
 extern stack<Scope*> scopes;
+extern bool is_reg;
+extern string last_reg;
 
 static void make_table(int n, ofstream& output)
 {
@@ -116,6 +119,39 @@ void IfElseStmtIR::print(ofstream& output)
     output << "br label %" << label_name + ".end" << endl;
     output << endl;
     // end BB
+    make_table(scopes.size(), output);
+    output << label_name + ".end:" << endl;
+}
+
+void WhileStmtIR::print(ofstream& output)
+{
+    // jmp to start
+    make_table(scopes.size(), output);
+    output << "br label " << "%" << label_name + ".start" << endl;
+    
+    // start label
+    make_table(scopes.size(), output);
+    output << label_name + ".start:" << endl;
+    // test logic, jmp end
+    scopes.push(new Scope(scopes.top()));
+    
+    generate_IR(cond, output);
+    assert(is_reg);
+    cond_reg = last_reg;
+    make_table(scopes.size(), output);
+    output << "br i1 " << cond_reg << ", " << "label "
+    << "%" << label_name + ".body" << ", " << "label "
+    << "%" << label_name + ".end" << endl;
+    
+    scopes.pop();
+    // while block
+    make_table(scopes.size(), output);
+    output << label_name + ".body:" << endl;
+    generate_IR(while_BB, output);
+    // jmp start
+    make_table(scopes.size(), output);
+    output << "br label " << "%" << label_name + ".start" << endl;
+    // end label
     make_table(scopes.size(), output);
     output << label_name + ".end:" << endl;
 }

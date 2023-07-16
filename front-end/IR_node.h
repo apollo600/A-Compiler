@@ -118,4 +118,15 @@ public:
     void print(ofstream& output);
 };
 
+class WhileStmtIR: public IR
+{
+public:
+    AST_Node* cond;
+    string cond_reg;
+    string label_name;
+    AST_Node* while_BB;
+
+    void print(ofstream& output);
+};
+
 #endif
