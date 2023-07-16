@@ -30,24 +30,21 @@ static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
 static void gen_LVal(AST_Node*& ast, ofstream& output);
 static void gen_Var_Decl(AST_Node*& ast, ofstream& output);
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
-static void gen_Func_Name(AST_Node*& ast, ofstream& output);
-static void gen_Func_Type(AST_Node*& ast, ofstream& output);
-static void gen_Func_Params(AST_Node*& ast, ofstream& output);
 static void gen_Add_Exp(AST_Node*& ast, ofstream& output);
+static void gen_Func_Call(AST_Node*& ast, ofstream& output);
 
 static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool is_const);
 static void gen_Return_Stmt(AST_Node*& ast, ofstream& output);
 static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output);
-static string gen_Func_Param(AST_Node*& ast);
+static string gen_Func_Def_Param(AST_Node*& ast);
+static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_type);
 
 map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::ADD_EXP, gen_Add_Exp},
     {NodeType::BLOCK, gen_Block},
     {NodeType::COMP_ROOT, gen_Comp_Root},
     {NodeType::FUNC_DEF, gen_Func_Def},
-    {NodeType::FUNC_PARAMS, gen_Func_Params},
-    {NodeType::FUNC_NAME, gen_Func_Name},
-    {NodeType::FUNC_TYPE, gen_Func_Type},
+    {NodeType::FUNC_CALL, gen_Func_Call},
     {NodeType::IDENT, gen_Ident},
     {NodeType::JUST_PASS, gen_Just_Pass},
     {NodeType::JUST_CONCAT, gen_Just_Concat},
@@ -60,30 +57,6 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
 
 void generate_IR(AST_Node*& ast, ofstream& output)
 {
-    /*
-
-    应当同样进行一个遍历，在每个节点会进行相应的操作
-    从根结点开始捏。
-    1. CompRoot，这里是一个vector，里面有多个CompUnit，生成的方式是拼接，建议添加一个注释在开头，添加一个空行在后方
-    2. CompUnit，有两种类型，Decl和FuncDef，这里只是一个抽象层，不需要执行
-    3. FuncDef, 这里就要定义函数的外围内容:
-        define <return-type> @<func-name>([arg-list]) {
-            [func-body]
-        }
-    4. VarDeclWithIdent，可以提供函数的return-type和func-name
-    5. 接下来应该是函数的参数列表，如果有再说，目前没有
-    6. 遇到了一个Block，生成一个大括号包住：
-        {
-            [BlockItemList]
-        }
-    7. BlockItem，这是一个中间层，Decl或Stmt，不需要执行
-    8. Stmt，分为很多种类型，需要单独去处理
-    9. 这里是return-Stmt，那就生成这样一个：
-        ret void/<exp>
-    10. 接下来会提供上述的exp，根据exp的类型，去详细生成即可
-
-    */
-
     const NodeType& type = ast->type;
     if (IR_handler_Table.count(type)) {
         IR_handler_Table[type](ast, output);
@@ -172,7 +145,7 @@ static void gen_Func_Def(AST_Node*& ast, ofstream& output)
     // 生成 Block
     for (AST_Node*& node: ast->childs[2]->childs) {
         ir.param_list.push_back(
-            gen_Func_Param(node)
+            gen_Func_Def_Param(node)
         );
     }
 
@@ -180,11 +153,87 @@ static void gen_Func_Def(AST_Node*& ast, ofstream& output)
 
     // continue to generate block
     generate_IR(ast->childs[3], output);
+
+    scopes.pop();
 }
 
-static string gen_Func_Param(AST_Node*& ast)
+static string gen_Func_Def_Param(AST_Node*& ast)
 {
-    perror("unimplemented");
+    // symbol
+    AST_Node* func_def_node = Backtrack(ast, "FuncDef");
+    string func_name = func_def_node->childs[1]->name;
+    Symbol* func_symbol = get_cur_scope()->lookup(func_name);
+    // param
+    SymbolType param_type;
+    if (ast->childs[0]->name == "int")
+        param_type = SymbolType::INT_VAR;
+    else
+        perror("unknown param type");
+    string param_name = ast->childs[1]->name;
+    // 修改符号表中函数的属性，加上参数列表
+    if (param_type == SymbolType::INT_VAR)
+        func_symbol->param_type_list.push_back("i32");
+    else
+        perror("unknown symbol type");
+    // 在符号表中声明函数参数
+    Symbol* param_symbol = new Symbol(param_name, param_type);
+    param_symbol->is_param = true;
+    param_symbol->reg_value = "%" + param_name;
+    get_cur_scope()->insert(param_symbol);
+    // ir中也需要添加函数的参数列表
+    if (param_type == SymbolType::INT_VAR) {
+        return "i32 %" + param_name;
+    } else {
+        perror("unknown");
+    }
+}
+
+static void gen_Func_Call(AST_Node*& ast, ofstream& output)
+{
+    FuncCallIR ir;
+
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.ret_reg = reg_name;
+
+    ir.func_name = ast->childs[0]->name;
+    
+    // func symbol
+    Symbol* func_symbol = get_cur_scope()->lookup(ir.func_name);
+    if (func_symbol->symbol_type == SymbolType::INT_FUNC) {
+        ir.var_type = "i32";
+    } else {
+        perror("unknown type");
+    }
+
+    // param list
+    AST_Node* param_list_node = ast->childs[1];
+    for (int i = 0; i < param_list_node->childs.size(); i++) {
+        string var_type = func_symbol->param_type_list[i];
+        ir.param_list.push_back(
+            gen_Func_Call_Param(param_list_node->childs[i], output, var_type)
+        );
+    }
+
+    ir.print(output);
+
+    is_reg = true;
+    last_reg = reg_name;
+}
+
+static string gen_Func_Call_Param(AST_Node*& ast, ofstream& output, string var_type)
+{
+    string var_value;
+    // 是常数/符号
+    // type
+    // value
+    generate_IR(ast, output);
+    if (is_reg) {
+        var_value = last_reg;
+    } else {
+        var_value = to_string(last_const);
+    }
+    return var_type + " " + var_value;
 }
 
 static void gen_Block(AST_Node*& ast, ofstream& output)
@@ -255,13 +304,33 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
         perror("symbol not found");
     // 获得值
     generate_IR(ast->childs[1], output);
-    if (is_reg) {
-        perror("unmet");
-    } else {
-        t_symbol->is_reg = false;
-        t_symbol->const_value = last_const;
-        cout << "assign " << lval_name << " " << last_const;
-        t_symbol->initialized = true;
+    if (t_symbol->is_global) { /* 全局值需要store */
+        AssignIR ir;
+        // lval
+        ir.left_reg_name = t_symbol->reg_value;
+        // right value
+        if (is_reg) {
+            ir.right_value = last_reg;
+        } else {
+            ir.right_value = to_string(last_const);
+        }
+        // type
+        if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+            ir.var_type = "i32";
+        } else {
+            perror("unknown type");
+        }
+        ir.print(output);
+    } else { /* 局部值直接修改符号表 */
+        if (is_reg) {
+            t_symbol->is_reg = true;
+            t_symbol->reg_value = last_reg;
+            t_symbol->initialized = true;
+        } else {
+            t_symbol->is_reg = false;
+            t_symbol->const_value = last_const;
+            t_symbol->initialized = true;
+        }
     }
 }
 
@@ -344,6 +413,7 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     // is global
     if (scopes.size() == 1) {
         t_symbol->is_global = true;
+        t_symbol->reg_value = "@" + t_symbol->name;
     } else {
         t_symbol->is_global = false;
     }
@@ -354,25 +424,28 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     get_cur_scope()->insert(t_symbol);
 
     // decl / def
-    if (ast->childs.size() == 1) { /* decl */
+    if (!t_symbol->is_global && ast->childs.size() == 1) { /* decl */
         return;
-    } else {
-        assert(ast->childs.size() == 3);
-    }
+    } 
 
-    // gen_const will fill the `is_reg` property
-    AST_Node* init_val = ast->childs[2];
-    generate_IR(init_val, output);
-
-    // value
-    if (is_reg) {
-        t_symbol->is_reg = true;
-        t_symbol->reg_value = last_reg;
-    } else {
+    if (t_symbol->is_global && ast->childs.size() == 1) {
+        t_symbol->const_value = 0;
         t_symbol->is_reg = false;
-        t_symbol->const_value = last_const;
-    }
+    } else {
+        // gen_const will fill the `is_reg` property
+        AST_Node* init_val = ast->childs[2];
+        generate_IR(init_val, output);
 
+        // value
+        if (is_reg) {
+            t_symbol->is_reg = true;
+            t_symbol->reg_value = last_reg;
+        } else {
+            t_symbol->is_reg = false;
+            t_symbol->const_value = last_const;
+        }
+    }
+    
     // 全局变量填写寄存器名称
     if (t_symbol->is_global)
         t_symbol->reg_value = "@" + t_symbol->name;
@@ -418,32 +491,6 @@ static void gen_Just_Continue(AST_Node*& ast, ofstream& output)
     return;
 }
 
-static void gen_Func_Name(AST_Node*& ast, ofstream& output)
-{
-    output << "@" << ast->name << " ";
-}
-
-static void gen_Func_Type(AST_Node*& ast, ofstream& output)
-{
-    if (ast->name == "int") {
-        output << "i32 ";
-    } else if (ast->name == "void") {
-        output << "void ";
-    } else {
-        perror("unimplemented function type");
-    }
-}
-
-static void gen_Func_Params(AST_Node*& ast, ofstream& output)
-{
-    if (ast->childs.size() == 0) {
-        output << "() ";
-    } else {
-        perror("unimplemented");
-        return;
-    }
-}
-
 static void gen_LVal(AST_Node*& ast, ofstream& output)
 {
     AST_Node* ident = ast->childs[0];
@@ -453,19 +500,22 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
         if (t_symbol->is_global) {
             if (t_symbol->symbol_type == SymbolType::INT_VAR) {
                 string reg_name = "%" + t_symbol->name;
-                output << "\t" << reg_name << " = ";
+                output << reg_name << " = ";
                 output << "load i32, i32* " << t_symbol->reg_value;
                 output << ", align 4" << endl;
                 last_reg = reg_name;
                 is_reg = true;
             }
         } else {
-            if (t_symbol->is_reg) {
+            if (t_symbol->is_param) {
+                last_reg = t_symbol->reg_value;
+                is_reg = true;
+            } else if (t_symbol->is_reg) {
                 last_reg = t_symbol->reg_value;
                 is_reg = true;
             } else {
                 string reg_name = "%" + t_symbol->name;
-                output << "\t" << reg_name << " = ";
+                output << reg_name << " = ";
                 output << "add i32 " << t_symbol->const_value << ", " << "0" << endl;
                 last_reg = reg_name;
                 is_reg = true;
@@ -494,9 +544,15 @@ static void gen_Add_Exp(AST_Node*& ast, ofstream& output)
     AST_Node* operand_1 = ast->childs[0];
     AST_Node* operand_2 = ast->childs[1];
     generate_IR(operand_1, output);
-    ir.operand_1 = last_reg;
+    if (is_reg)
+        ir.operand_1 = last_reg;
+    else
+        ir.operand_1 = to_string(last_const);
     generate_IR(operand_2, output);
-    ir.operand_2 = last_reg;
+    if (is_reg)
+        ir.operand_2 = last_reg;
+    else
+        ir.operand_2 = to_string(last_const);
 
     ir.var_type = "i32";
 

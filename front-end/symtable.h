@@ -22,18 +22,23 @@ class Symbol
 public:
     /*
     | name | symbol_type |
-            - func       |
+            - func       | param_type_list |
             - var        | initialized | value_type | value | is_const | is_global |
     */
     string name;
     SymbolType symbol_type;
 
+    // var
     bool initialized;
+    bool is_reg;
     int const_value;
     string reg_value; 
-    bool is_reg;
     bool is_global;
     bool is_const;
+    bool is_param = false;
+
+    // func
+    vector<string> param_type_list;
 
     // 用于变量的定义，有初始值
     Symbol(const string& name, const int& value, const SymbolType& type):

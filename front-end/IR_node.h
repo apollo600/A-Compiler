@@ -67,4 +67,31 @@ public:
     void print(ofstream& output);
 };
 
+class FuncCallIR: public IR
+{
+public:
+    string ret_reg;
+    string var_type;
+    string func_name;
+    vector<string> param_list;
+
+    void print(ofstream& output);
+};
+
+class AssignIR: public IR
+{
+public:
+    string var_type;
+    string left_reg_name;
+    string right_value;
+
+    void print(ofstream& output);
+};
+
+class LValIR: public IR
+{
+public:
+    
+}
+
 #endif

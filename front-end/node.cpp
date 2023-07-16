@@ -7,6 +7,7 @@ std::map<NodeType, std::string> node_type2name{
     {NodeType::ADD_EXP, "ADD_EXP"},
     {NodeType::BLOCK, "BLOCK"},
     {NodeType::error, "error"},
+    {NodeType::FUNC_CALL, "FUNC_CALL"},
     {NodeType::FUNC_DECL, "FUNC_DECL"},
     {NodeType::FUNC_DEF, "FUNC_DEF"},
     {NodeType::FUNC_NAME, "FUNC_NAME"},
