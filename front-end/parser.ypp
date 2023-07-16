@@ -143,7 +143,6 @@ VarDefList:     VarDef {
                     $$->set_type(NodeType::JUST_CONCAT);
                 }
                 | VarDefList ',' VarDef { 
-                    cout << "get new vardef" << endl;
                     $$->add_child($3); 
                 }
                 ;

@@ -289,10 +289,6 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
 {
     /* symbol part */
 
-    /* 检查是不是数组，即是否有VarDefList
-    按照当前具体语法树的写法，直接使用第三个节点 */
-    AST_Node* init_val = ast->childs[2];
-
     // insert node to symbol table
     /* 这个部分比较难，即获取这个表达式的值，参照另一个代码，
     首先，要继续向下遍历，不能跳过这个表达式；
@@ -314,7 +310,13 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
 
     get_cur_scope()->insert(t_symbol);
 
+    // decl / def
+    if (ast->childs.size() == 1) { /* decl */
+        return;
+    }
+
     // gen_const will fill the `is_reg` property
+    AST_Node* init_val = ast->childs[2];
     generate_IR(init_val, output);
 
     // value
