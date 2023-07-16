@@ -73,3 +73,10 @@ void AssignIR::print(ofstream& output)
     output << "store " << var_type << " " << right_value << ", "
     << var_type << "* " << left_reg_name << endl;
 }
+
+void LValIR::print(ofstream& output)
+{
+    make_table(output);
+    output << left_reg_name << " = " << "load " << var_type << ", "
+    << var_type << "* " << right_reg_name << ", " << "align " << align_bytes << endl;
+}

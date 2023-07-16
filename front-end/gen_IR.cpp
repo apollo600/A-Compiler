@@ -186,6 +186,8 @@ static string gen_Func_Def_Param(AST_Node*& ast)
     } else {
         perror("unknown");
     }
+
+    return "";
 }
 
 static void gen_Func_Call(AST_Node*& ast, ofstream& output)
@@ -499,10 +501,20 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
     if (t_symbol) {
         if (t_symbol->is_global) {
             if (t_symbol->symbol_type == SymbolType::INT_VAR) {
-                string reg_name = "%" + t_symbol->name;
-                output << reg_name << " = ";
-                output << "load i32, i32* " << t_symbol->reg_value;
-                output << ", align 4" << endl;
+                LValIR ir;
+                // left_reg_name
+                global_var_index++;
+                string reg_name = "%v" + to_string(global_var_index);
+                ir.left_reg_name = reg_name;
+                // right_reg_name
+                ir.right_reg_name = t_symbol->reg_value;
+                // var_type
+                ir.var_type = "i32";
+                // align bytes
+                ir.align_bytes = 4;
+                
+                ir.print(output);
+
                 last_reg = reg_name;
                 is_reg = true;
             }

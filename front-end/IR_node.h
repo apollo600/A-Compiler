@@ -91,7 +91,12 @@ public:
 class LValIR: public IR
 {
 public:
-    
-}
+    string var_type;
+    string left_reg_name;
+    string right_reg_name;
+    int align_bytes;
+
+    void print(ofstream& output);
+};
 
 #endif
