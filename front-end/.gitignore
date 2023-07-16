@@ -1,5 +1,3 @@
 parser.tab.cpp
 parser.tab.hpp
 scanner.lex.cpp
-output.txt
-main.ll

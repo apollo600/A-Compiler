@@ -21,7 +21,8 @@ ir: all
 	${TARGET} test_parser.sy -o main.ll
 
 clean:
-	rm -f parser.out parser.tab.hpp parser.tab.cpp scanner.lex.cpp main.ll main.out
+	rm -f parser.tab.hpp parser.tab.cpp scanner.lex.cpp
+	rm -f *.ll *.out *.output
 	rm -rf ${BUILD_DIR}
 
 ${BUILD_DIR}:
