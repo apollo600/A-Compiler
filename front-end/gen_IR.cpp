@@ -201,7 +201,7 @@ static void gen_Stmt(AST_Node*& ast, ofstream& output)
         gen_Return_Stmt(ast, output);   
     } 
     /* assign-stmt */
-    else if (ast->childs[0]->name == "assign =") {
+    else if (ast->name == "assign =") {
         gen_Assign_Stmt(ast, output);
     }
 }
@@ -251,6 +251,8 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
     }
     // symbol
     Symbol* t_symbol = get_cur_scope()->lookup(lval_name);
+    if (!t_symbol)
+        perror("symbol not found");
     // 获得值
     generate_IR(ast->childs[1], output);
     if (is_reg) {
@@ -258,6 +260,7 @@ static void gen_Assign_Stmt(AST_Node*& ast, ofstream& output)
     } else {
         t_symbol->is_reg = false;
         t_symbol->const_value = last_const;
+        cout << "assign " << lval_name << " " << last_const;
         t_symbol->initialized = true;
     }
 }
