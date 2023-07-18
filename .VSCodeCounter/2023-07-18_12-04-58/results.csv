@@ -1,6 +1,0 @@
-"filename", "language", "Python", "Makefile", "Batch", "PowerShell", "comment", "blank", "total"
-"d:\Git\A-Compiler\functional-test\TestMachine.py", "Python", 76, 0, 0, 0, 10, 22, 108
-"d:\Git\A-Compiler\functional-test\make.bat", "Batch", 0, 0, 2, 0, 0, 0, 2
-"d:\Git\A-Compiler\functional-test\makefile", "Makefile", 0, 11, 0, 0, 0, 4, 15
-"d:\Git\A-Compiler\functional-test\test.ps1", "PowerShell", 0, 0, 0, 5, 0, 1, 6
-"Total", "-", 76, 11, 2, 5, 10, 27, 131

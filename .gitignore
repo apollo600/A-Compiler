@@ -39,3 +39,4 @@
 # folders
 .vscode/
 build/
+.VSCodeCounter/
