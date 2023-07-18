@@ -56,26 +56,30 @@ CompRoot:       CompUnit {
                 ;
 
 CompUnit:       Decl { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("CompUnit");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | FuncDef { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("CompUnit"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 ;
 
 Decl:           ConstDecl { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("Decl");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | VarDecl { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("Decl");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 ;
 
@@ -121,9 +125,10 @@ ConstIndex:     '[' ConstExp ']' { $$ = new AST_Node($2, nullptr); $$->set_name(
                 ;
 
 ConstInitVal:   ConstExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("ConstInitVal"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | '{' '}' {
                     AST_Node* child1 = new AST_Node();
@@ -299,14 +304,16 @@ BlockItemList:  %empty {
                 ;
 
 BlockItem:      Decl { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("BlockItem");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | Stmt { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("BlockItem");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 ;
 
@@ -401,30 +408,34 @@ Stmt:           LVal '=' Exp ';' {
                 ;
 
 Exp:            AddExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("Exp");
-                    $$->set_type(NodeType::JUST_PASS); 
+                    $$->set_type(NodeType::JUST_PASS);  */
                 }
                 ;
 
 ConstExp:       AddExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("ConstExp"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 ;
 
 Cond:           LOrExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("Cond"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 ;
 
 LOrExp:         LAndExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("LOrExp");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | LOrExp T_OR LAndExp { 
                     $$ = new AST_Node($1, $3, nullptr);
@@ -433,9 +444,10 @@ LOrExp:         LAndExp {
                 ;
 
 LAndExp:        EqExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("LAndExp");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | LAndExp T_AND EqExp { 
                     $$ = new AST_Node($1, $3, nullptr);
@@ -444,9 +456,10 @@ LAndExp:        EqExp {
                 ;
 
 EqExp:          RelExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("EqExp");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | EqExp EqOp RelExp { 
                     $$ = new AST_Node($1, $3, nullptr);
@@ -457,9 +470,10 @@ EqExp:          RelExp {
                 ;
 
 RelExp:         AddExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("RelExp");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | RelExp RelOp AddExp { 
                     $$ = new AST_Node($1, $3, nullptr);
@@ -480,9 +494,10 @@ EqOp:           T_EQ { $$ = new std::string("=="); }
                 ;
 
 AddExp:         MulExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("AddExp");
-                    $$->set_type(NodeType::JUST_PASS); 
+                    $$->set_type(NodeType::JUST_PASS);  */
                 }
                 | AddExp AddOp MulExp { 
                     $$ = new AST_Node($1, $3, nullptr); 
@@ -497,9 +512,10 @@ AddOp:          '+' { $$ = new std::string("+"); }
                 ;
 
 MulExp:         UnaryExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("MulExp"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | MulExp MulOp UnaryExp { 
                     $$ = new AST_Node($1, $3, nullptr); 
@@ -515,9 +531,10 @@ MulOp:          '*' { $$ = new std::string("*"); }
                 ;
 
 UnaryExp:       PrimaryExp { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("UnaryExp"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | Ident '(' ')' { 
                     $$ = new AST_Node($1, nullptr);
@@ -553,19 +570,22 @@ UnaryOp:        '+' {
                 ;
 
 PrimaryExp:     '(' Exp ')' { 
-                    $$ = new AST_Node($2, nullptr);
+                    $$ = $2;
+                    /* $$ = new AST_Node($2, nullptr);
                     $$->set_name("PrimaryExp");
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | LVal { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("PrimaryExp"); 
-                    $$->set_type(NodeType::JUST_PASS);
+                    $$->set_type(NodeType::JUST_PASS); */
                 }
                 | Number { 
-                    $$ = new AST_Node($1, nullptr); 
+                    $$ = $1;
+                    /* $$ = new AST_Node($1, nullptr); 
                     $$->set_name("PrimaryExp");
-                    $$->set_type(NodeType::JUST_PASS); 
+                    $$->set_type(NodeType::JUST_PASS);  */
                 }
                 ;
 

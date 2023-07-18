@@ -12,9 +12,10 @@ import os
 import sys
 import datetime
 import subprocess
+import traceback
 
 ### CONFIG BEGIN
-
+OUTPUT = False
 ### CONFIG END
 
 class Colors:
@@ -38,19 +39,22 @@ def check_compiler(Compiler):
         timestamp = os.path.getmtime(Compiler)
         modified_time = datetime.datetime.fromtimestamp(timestamp)
         formatted_time = modified_time.strftime("%Y-%m-%d %H:%M:%S")
-        print(f"\nUsing Compiler: {Compiler}, Generated at: {formatted_time}")
+        if OUTPUT:
+            print(f"\nUsing Compiler: {Compiler}, Generated at: {formatted_time}")
     else:
         raise FileNotFoundError(f"Compiler {Compiler} not found")
 
 
-def compile_sysy(Infile, IR, DEBUG_OUTPUT):
+def compile_sysy(Compiler, Infile, IR, DEBUG_OUTPUT):
     if os.path.exists(Infile):
         if DEBUG_OUTPUT is not None:
-            print(f"\nCompile SysY: {Infile} to LLVM IR: {IR} > {DEBUG_OUTPUT}")
+            if OUTPUT:
+                print(f"\nCompile SysY: {Infile} to LLVM IR: {IR} > {DEBUG_OUTPUT}")
             with open(DEBUG_OUTPUT, "w") as output:
                 subprocess.run([Compiler, Infile, "-o", IR], stdout=output, stderr=output)
         else:
-            print(f"\nCompile SysY: {Infile} to LLVM IR: {IR}")
+            if OUTPUT:
+                print(f"\nCompile SysY: {Infile} to LLVM IR: {IR}")
             subprocess.run([Compiler, Infile, "-o", IR, "--hide-AST"])
     else:
         raise FileNotFoundError(f"Src file {Infile} not found")
@@ -58,7 +62,8 @@ def compile_sysy(Infile, IR, DEBUG_OUTPUT):
         
 def compile_IR(IR, Exe):
     if os.path.exists(IR):
-        print(f"\nCompile LLVM IR: {IR} to Exe: {Exe}")
+        if OUTPUT:
+            print(f"\nCompile LLVM IR: {IR} to Exe: {Exe}")
         subprocess.run(["clang", IR, "-o", Exe])
     else:
         raise FileNotFoundError(f"IR file {IR} not found")
@@ -66,7 +71,8 @@ def compile_IR(IR, Exe):
 
 def run_exe(Exe):
     if os.path.exists(Exe):
-        print(f"\nRun Exe: {Exe}")
+        if OUTPUT:
+            print(f"\nRun Exe: {Exe}")
         result = subprocess.run([Exe])
         return result.returncode
     else:
@@ -81,27 +87,48 @@ def check_result(returncode, Outfile, TestCase):
     if returncode == true_value:
         print(f"\n{Colors.BOLD}Test Case: {TestCase}{Colors.RESET} return code is {returncode} {Colors.GREEN}PASS{Colors.RESET}")
     else:
-        print(f"\nreturn code is {returncode}, true value is {true_value} {Colors.RED}FAILED{Colors.RESET}")
+        raise ValueError(f"\nreturn code is {returncode}, true value is {true_value} {Colors.RED}FAILED{Colors.RESET}")
+
+
+def Test(In, Compiler):
+    # In = args[1] # "./function_test2021/001_var_defn.sy"
+    IR = "./main.ll"
+    DEBUG_OUTPUT = "./parser-output.txt"
+    Exe = "./main.out"
+    Out = re.sub(".sy$", ".out", In)
+    TestCase = int(In.split("\\")[-1].split("_")[0])
+
+    try:
+        compile_sysy(Compiler, In, IR, DEBUG_OUTPUT)
+        compile_IR(IR, Exe)
+        returncode = run_exe(Exe)
+        check_result(returncode, Out, TestCase)
+    except Exception as e:
+        print(f"\n{Colors.BOLD}Test Case: {TestCase}{Colors.RESET} {Colors.RED}FAILED{Colors.RESET}")
+        traceback.print_exc()
+        sys.stderr.write(repr(e) + "\n")
+
 
 
 if __name__ == "__main__":
     args = sys.argv
 
-    Script = "make"
+    """ Script = "make"
     Compiler = "./parser.out"
     In = args[1] # "./function_test2021/001_var_defn.sy"
     IR = "./main.ll"
     DEBUG_OUTPUT = "./parser-output.txt"
     Exe = "./main.out"
     Out = re.sub(".sy$", ".out", In)
-    TestCase = int(In.split("\\")[-1][:3])
+    TestCase = int(In.split("\\")[-1][:3]) """
 
     try:
-        init_test(Script)
+        """ init_test(Script)
         check_compiler(Compiler)
         compile_sysy(In, IR, DEBUG_OUTPUT)
         compile_IR(IR, Exe)
         returncode = run_exe(Exe)
-        check_result(returncode, Out, TestCase)
+        check_result(returncode, Out, TestCase) """
+        Test(args[1])
     except Exception as e:
         print(e)
