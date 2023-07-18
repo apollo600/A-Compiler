@@ -188,3 +188,43 @@ void ContinueStmtIR::print(ofstream& output)
     make_table(scopes.size(), output);
     output << "br label " << "%" << label_name + ".start" << endl;
 }
+
+void LOrExpIR::print(ofstream& output)
+{
+    // 求 BB_1
+    generate_IR(BB_1, output);
+    make_table(scopes.size(), output);
+    output << "br i1 " << last_reg << ", label %" << label_name + ".true" 
+    << ", label %" << label_name + ".false" << endl;
+    // 如果否，继续 BB_2
+    make_table(scopes.size(), output);
+    output << label_name + ".false:" << endl;
+    generate_IR(BB_2, output);
+    make_table(scopes.size(), output);
+    output << "br label %" << label_name + ".true" << endl;
+    // 如果真，跳转到 end
+    make_table(scopes.size(), output);
+    output << label_name + ".true:" << endl;
+    
+    return_reg = last_reg;
+}
+
+void LAndExpIR::print(ofstream& output)
+{
+    // 求 BB_1
+    generate_IR(BB_1, output);
+    make_table(scopes.size(), output);
+    output << "br i1 " << last_reg << ", label %" << label_name + ".true" 
+    << ", label %" << label_name + ".false" << endl;
+    // 如果否，继续 BB_2
+    make_table(scopes.size(), output);
+    output << label_name + ".true:" << endl;
+    generate_IR(BB_2, output);
+    make_table(scopes.size(), output);
+    output << "br label %" << label_name + ".false" << endl;
+    // 如果真，跳转到 end
+    make_table(scopes.size(), output);
+    output << label_name + ".false:" << endl;
+    
+    return_reg = last_reg;
+}

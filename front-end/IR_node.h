@@ -144,4 +144,30 @@ public:
     void print(ofstream& output);
 };
 
+class LOrExpIR: public IR
+{
+public:
+    AST_Node* BB_1;
+    AST_Node* BB_2;
+    string inst_name;
+    string label_name;
+    string var_type;
+    string return_reg;
+
+    void print(ofstream& output);
+};
+
+class LAndExpIR: public IR
+{
+    public:
+    AST_Node* BB_1;
+    AST_Node* BB_2;
+    string inst_name;
+    string label_name;
+    string var_type;
+    string return_reg;
+
+    void print(ofstream& output);
+};
+
 #endif

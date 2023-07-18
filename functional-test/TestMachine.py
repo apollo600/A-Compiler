@@ -113,22 +113,15 @@ def Test(In, Compiler):
 if __name__ == "__main__":
     args = sys.argv
 
-    """ Script = "make"
+    Script = "make"
     Compiler = "./parser.out"
-    In = args[1] # "./function_test2021/001_var_defn.sy"
-    IR = "./main.ll"
-    DEBUG_OUTPUT = "./parser-output.txt"
-    Exe = "./main.out"
-    Out = re.sub(".sy$", ".out", In)
-    TestCase = int(In.split("\\")[-1][:3]) """
+    # In = args[1] # "./function_test2021/001_var_defn.sy"
+    # IR = "./main.ll"
+    # DEBUG_OUTPUT = "./parser-output.txt"
+    # Exe = "./main.out"
+    # Out = re.sub(".sy$", ".out", In)
+    # TestCase = int(In.split("\\")[-1][:3])
 
-    try:
-        """ init_test(Script)
-        check_compiler(Compiler)
-        compile_sysy(In, IR, DEBUG_OUTPUT)
-        compile_IR(IR, Exe)
-        returncode = run_exe(Exe)
-        check_result(returncode, Out, TestCase) """
-        Test(args[1])
-    except Exception as e:
-        print(e)
+    init_test(Script)
+    check_compiler(Compiler)
+    Test(args[1], Compiler="./parser.out")

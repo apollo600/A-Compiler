@@ -440,6 +440,7 @@ LOrExp:         LAndExp {
                 | LOrExp T_OR LAndExp { 
                     $$ = new AST_Node($1, $3, nullptr);
                     $$->set_name("||");
+                    $$->set_type(NodeType::LOR_EXP);
                 }
                 ;
 
@@ -452,6 +453,7 @@ LAndExp:        EqExp {
                 | LAndExp T_AND EqExp { 
                     $$ = new AST_Node($1, $3, nullptr);
                     $$->set_name("&&");
+                    $$->set_type(NodeType::LAND_EXP);
                 }
                 ;
 

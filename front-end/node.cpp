@@ -18,6 +18,8 @@ map<NodeType, string> node_type2name{
     {NodeType::JUST_CONCAT, "JUST_CONCAT"},
     {NodeType::JUST_PASS, "JUST_PASS"},
     {NodeType::JUST_CONTINUE, "JUST_CONTINUE"},
+    {NodeType::LAND_EXP, "LAND_EXP"},
+    {NodeType::LOR_EXP, "LOR_EXP"},
     {NodeType::LVAL, "LVAL"},
     {NodeType::MUL_EXP, "MUL_EXP"},
     {NodeType::NUMBER, "NUMBER"},

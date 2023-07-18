@@ -22,6 +22,9 @@ static int last_const = 0;
 int global_if_index = 0;
 int global_while_index = 0;
 
+/* used for short-circuit */
+int global_short_circuit_index = 0;
+
 static AST_Node* Backtrack(AST_Node* ast, string node_name);
 static AST_Node* Track(AST_Node* ast, string node_name);
 static inline Scope* get_cur_scope();
@@ -37,6 +40,8 @@ static void gen_Ident(AST_Node*& ast, ofstream& output);
 static void gen_Just_Concat(AST_Node*& ast, ofstream& output);
 static void gen_Just_Continue(AST_Node*& ast, ofstream& output);
 static void gen_Just_Pass(AST_Node*& ast, ofstream& output);
+static void gen_LAnd_Exp(AST_Node*& ast, ofstream& output);
+static void gen_LOr_Exp(AST_Node*& ast, ofstream& output);
 static void gen_LVal(AST_Node*& ast, ofstream& output);
 static void gen_Mul_Exp(AST_Node*& ast, ofstream& output);
 static void gen_Number(AST_Node*& ast, ofstream& output);
@@ -66,6 +71,8 @@ map<NodeType, void (*)(AST_Node*&, ofstream&)> IR_handler_Table = {
     {NodeType::IDENT, gen_Ident},
     {NodeType::JUST_PASS, gen_Just_Pass},
     {NodeType::JUST_CONCAT, gen_Just_Concat},
+    {NodeType::LOR_EXP, gen_LOr_Exp},
+    {NodeType::LAND_EXP, gen_LAnd_Exp},
     {NodeType::LVAL, gen_LVal},
     {NodeType::MUL_EXP, gen_Mul_Exp},
     {NodeType::NUMBER, gen_Number},
@@ -959,6 +966,66 @@ static void gen_Eq_Exp(AST_Node*& ast, ofstream& output)
     ir.var_type = last_reg_type;
 
     ir.print(output);
+    last_reg = ir.return_reg;
+    is_reg = true;
+}
+
+static void gen_LOr_Exp(AST_Node*& ast, ofstream& output)
+{
+    LOrExpIR ir;
+
+    // two BB
+    ir.BB_1 = ast->childs[0];
+    ir.BB_2 = ast->childs[1];
+
+    // label name
+    global_short_circuit_index++;
+    string label_name = "short-circuit-" + to_string(global_short_circuit_index);
+    ir.label_name = label_name;
+
+    // inst
+    ir.inst_name = "or";
+
+    // var type
+    ir.var_type = "i1";
+
+    // return reg
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.return_reg = reg_name;
+
+    ir.print(output);
+
+    last_reg = ir.return_reg;
+    is_reg = true;
+}
+
+static void gen_LAnd_Exp(AST_Node*& ast, ofstream& output)
+{
+    LAndExpIR ir;
+
+    // two BB
+    ir.BB_1 = ast->childs[0];
+    ir.BB_2 = ast->childs[1];
+
+    // label name
+    global_short_circuit_index++;
+    string label_name = "short-circuit-" + to_string(global_short_circuit_index);
+    ir.label_name = label_name;
+
+    // inst
+    ir.inst_name = "and";
+
+    // var type
+    ir.var_type = "i1";
+
+    // return reg
+    global_var_index++;
+    string reg_name = "%v" + to_string(global_var_index);
+    ir.return_reg = reg_name;
+
+    ir.print(output);
+
     last_reg = ir.return_reg;
     is_reg = true;
 }
