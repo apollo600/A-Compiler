@@ -12,5 +12,19 @@ test_cases = glob.glob(file_pattern)
 
 init_test(Script)
 check_compiler(Compiler)
+pass_cases = []
+fail_cases = []
 for test_case in test_cases:
-    Test(test_case, Compiler)
+    try:
+        case, res = Test(test_case, Compiler)
+        if res:
+            pass_cases.append(case)
+        else:
+            fail_cases.append(case)
+    except Exception as e:
+        print("Top level", repr(e))
+
+print("Pass Cases: total ", len(pass_cases))
+print(pass_cases)
+# print("Fail Cases: total ", len(fail_cases))
+# print(fail_cases)

@@ -86,6 +86,7 @@ def check_result(returncode, Outfile, TestCase):
     
     if returncode == true_value:
         print(f"\n{Colors.BOLD}Test Case: {TestCase}{Colors.RESET} return code is {returncode} {Colors.GREEN}PASS{Colors.RESET}")
+        return True
     else:
         raise ValueError(f"\nreturn code is {returncode}, true value is {true_value} {Colors.RED}FAILED{Colors.RESET}")
 
@@ -98,16 +99,19 @@ def Test(In, Compiler):
     Out = re.sub(".sy$", ".out", In)
     TestCase = int(In.split("\\")[-1].split("_")[0])
 
+    result = False
+
     try:
         compile_sysy(Compiler, In, IR, DEBUG_OUTPUT)
         compile_IR(IR, Exe)
         returncode = run_exe(Exe)
-        check_result(returncode, Out, TestCase)
+        result = check_result(returncode, Out, TestCase)
     except Exception as e:
         print(f"\n{Colors.BOLD}Test Case: {TestCase}{Colors.RESET} {Colors.RED}FAILED{Colors.RESET}")
-        traceback.print_exc()
+        # traceback.print_exc()
         sys.stderr.write(repr(e) + "\n")
-
+    finally:
+        return TestCase, result
 
 
 if __name__ == "__main__":

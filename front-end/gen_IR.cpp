@@ -593,7 +593,7 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     ir.var_name = ident->name;
 
     // is reg
-    ir.is_reg = t_symbol->is_reg;
+    ir.is_reg = is_reg;
 
     // value
     if (is_reg) {
