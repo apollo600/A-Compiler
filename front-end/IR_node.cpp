@@ -44,6 +44,9 @@ void FuncDefIR::print(ofstream& output)
     output << ") ";
     output << "{" << endl;
     generate_IR(func_BB, output);
+    // add default return
+    make_table(scopes.size(), output);
+    output << "ret i32 0" << endl;
     output << "}" << endl;
 }
 

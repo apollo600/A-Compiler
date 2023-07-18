@@ -750,7 +750,11 @@ static void gen_Unary_Exp(AST_Node*& ast, ofstream& output)
         } else {
             ir.operand_2 = to_string(last_const);
         }
-        ir.var_type = last_reg_type;
+        // reg type
+        if (last_reg_type != "")
+            ir.var_type = last_reg_type;
+        else
+            ir.var_type = "i32";
 
         ir.print(output);
 
