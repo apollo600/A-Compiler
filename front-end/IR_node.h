@@ -58,13 +58,11 @@ public:
     bool is_const;
     string var_type;
 
+    bool is_initialized;
     bool is_reg;
     int init_value;
     string init_reg;
     int align_bytes;
-
-    // local
-    // only record in symbol table
 
     void print(ofstream& output);
 };

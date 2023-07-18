@@ -547,30 +547,25 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     get_cur_scope()->insert(t_symbol);
 
     // decl / def
-    if (!t_symbol->is_global && ast->childs.size() == 1) { /* decl */
+    if (!t_symbol->is_global && ast->childs.size() == 1) { /* local decl */
         t_symbol->initialized = false;
-    } else if (t_symbol->is_global && ast->childs.size() == 1) {
+    } else if (t_symbol->is_global && ast->childs.size() == 1) { /* global decl */
         t_symbol->initialized = true;
         t_symbol->const_value = 0;
         t_symbol->is_reg = false;
-    } else {
+    } else { /* def */
         AST_Node* init_val = ast->childs[2];
         generate_IR(init_val, output);
-
-        // value
-        if (is_reg) {
-            t_symbol->is_reg = true;
-            t_symbol->reg_value = last_reg;
-        } else {
-            t_symbol->is_reg = false;
-            t_symbol->const_value = last_const;
-        }
+        t_symbol->is_reg = true;
         t_symbol->initialized = true;
     }
 
     /* IR part */
 
     VarDefIR ir;
+
+    // is initialized
+    ir.is_initialized = t_symbol->initialized;
 
     // var type
     if (type == SymbolType::INT_VAR) {
@@ -594,10 +589,10 @@ static void gen_Var_Def(AST_Node*& ast, ofstream& output, SymbolType type, bool 
     ir.is_reg = t_symbol->is_reg;
 
     // value
-    if (ir.is_reg) {
-        ir.init_reg = t_symbol->reg_value;
+    if (is_reg) {
+        ir.init_reg = last_reg;
     } else {
-        ir.init_value = t_symbol->const_value;
+        ir.init_value = last_const;
     }
 
     cout << ir.is_global << " " << ir.is_reg << endl;
@@ -619,16 +614,56 @@ static void gen_LVal(AST_Node*& ast, ofstream& output)
         perror("no symbol in table");
     }
 
+    bool is_left_value = false;
+    AST_Node* assign_node = Backtrack(ast, "assign =");
+    if (assign_node) {
+        is_left_value = true;
+    }
+
     if (t_symbol->is_param) {
-        last_reg = t_symbol->reg_value;
-        if (t_symbol->symbol_type == SymbolType::BOOL_VAR)
-            last_reg_type = "i1";
-        else if (t_symbol->symbol_type == SymbolType::INT_VAR)
-            last_reg_type = "i32";
-        else
-            perror("unknown type");
-        is_reg = true;
-        return;
+        if (!is_left_value) { /* directly use value of param */
+            last_reg = t_symbol->reg_value;
+            if (t_symbol->symbol_type == SymbolType::BOOL_VAR)
+                last_reg_type = "i1";
+            else if (t_symbol->symbol_type == SymbolType::INT_VAR)
+                last_reg_type = "i32";
+            else
+                perror("unknown type");
+            is_reg = true;
+            return;
+        } else { /* alloca a new register for param */
+            VarDefIR ir;
+
+            // left_reg_name
+            global_var_index++;
+            string reg_name = "v" + to_string(global_var_index);
+            ir.var_name = reg_name;
+
+            // type
+            if (t_symbol->symbol_type == SymbolType::BOOL_VAR) {
+                ir.align_bytes = 1;
+                ir.var_type = "i1";
+            }
+            else if (t_symbol->symbol_type == SymbolType::INT_VAR) {
+                ir.align_bytes = 4;
+                ir.var_type = "i32";
+            }
+            else
+                perror("unknown type");
+            
+            ir.is_initialized = true;
+            ir.is_reg = true;
+            ir.init_reg = t_symbol->reg_value;
+            ir.is_const = t_symbol->is_const;
+            ir.is_global = t_symbol->is_global;
+            
+            ir.print(output);
+
+            // not a param now
+            t_symbol->is_param = false;
+            t_symbol->is_reg = true;
+            t_symbol->reg_value = "%" + reg_name;
+        }
     }
 
     LValIR ir;

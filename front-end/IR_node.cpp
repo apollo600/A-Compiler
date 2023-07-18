@@ -49,12 +49,27 @@ void FuncDefIR::print(ofstream& output)
 
 void VarDefIR::print(ofstream& output)
 {
-    make_table(scopes.size(), output);
-    if (is_global)
+    
+    if (is_global) {
+        make_table(scopes.size(), output);
         output << "@" << var_name << " = " << "global " << var_type << " "
         << init_value << " align " << align_bytes << endl;
-    else
+    }
+    else {
+        make_table(scopes.size(), output);
         output << "%" << var_name << " = " << "alloca " << var_type << endl;
+        if (is_initialized) {
+            make_table(scopes.size(), output);
+            if (is_reg) {
+                output << "store " << var_type << " " << init_reg << ", "
+                << var_type << "* " << "%" << var_name << endl;
+            } else {
+                output << "store " << var_type << " " << init_value << ", "
+                << var_type << "* " << "%" << var_name << endl;
+            }
+            
+        }
+    }
 }
 
 void FuncCallIR::print(ofstream& output)
