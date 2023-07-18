@@ -36,6 +36,9 @@
 *.ll
 *.txt
 
+# py cache
+*.pyc
+
 # folders
 .vscode/
 build/
