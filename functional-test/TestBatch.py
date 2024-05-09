@@ -3,20 +3,20 @@ from TestMachine import Test, init_test, check_compiler
 import os
 import glob
 
-Script = "make"
-Compiler = "./parser.out"
+SCRIPT = "make"
+COMPILER = "../build/parser.out"
 TEST_DIR = "./function_test2021"
 
 file_pattern = os.path.join(TEST_DIR, "*.sy")
-test_cases = glob.glob(file_pattern)
+test_cases = sorted(glob.glob(file_pattern))
 
-init_test(Script)
-check_compiler(Compiler)
+init_test(SCRIPT)
+check_compiler(COMPILER)
 pass_cases = []
 fail_cases = []
 for test_case in test_cases:
     try:
-        case, res = Test(test_case, Compiler)
+        case, res = Test(test_case, COMPILER)
         if res:
             pass_cases.append(case)
         else:

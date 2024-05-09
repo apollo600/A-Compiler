@@ -1,9 +1,10 @@
 CC := g++
 CFLAGS := -std=c++11
-TARGET := ../functional-test/parser.out
 
 SOURCE_DIR := .
 BUILD_DIR := ../build
+
+TARGET := ${BUILD_DIR}/parser.out
 
 SRCS := $(wildcard $(addprefix $(SOURCE_DIR)/, *.cpp))
 SRC_FILES := $(notdir $(SRCS))

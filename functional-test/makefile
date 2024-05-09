@@ -2,12 +2,13 @@
 
 SRC = ./function_test2021/001_var_defn.sy 
 IR = ./main.ll
+BIN = ../build/parser.out
 OUTPUT = ./parser-output.txt
 
 all: 
 	$(MAKE) -C ../front-end/
 
-run: ./parser.out
+run: ${BIN}
 	$(MAKE) -C ../front-end/
 	$< ${SRC} -o ${IR} 2>&1 > ${OUTPUT}
 
